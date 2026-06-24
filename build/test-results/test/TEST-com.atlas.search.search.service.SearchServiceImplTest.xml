@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.atlas.search.search.service.SearchServiceImplTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-06-24T06:44:19.548Z" hostname="Eduardos-MacBook-Pro.local" time="0.876">
+  <properties/>
+  <testcase name="getTrip_throws404WhenUnknownId()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.757"/>
+  <testcase name="search_sortsByPriceAscendingByDefault()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.055"/>
+  <testcase name="search_excludesSoldOutFlights()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.007"/>
+  <testcase name="search_persistsOffersWithSearchIdAndTTL()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.01"/>
+  <testcase name="search_rejectsWhenReturnDateBeforeDepartureDate()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.003"/>
+  <testcase name="getTrip_returnsDetailForValidOffer()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.004"/>
+  <testcase name="search_excludesDisabledFlights()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.005"/>
+  <testcase name="search_rejectsWhenDepartureDateIsInThePast()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.002"/>
+  <testcase name="search_computesFlightTotalAsBasePriceTimesPaxRequiringSeat()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.005"/>
+  <testcase name="getTrip_throws410WhenExpired()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.002"/>
+  <testcase name="search_paginatesResults()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.005"/>
+  <testcase name="search_returnsFlightOnlyOffers_whenOneWay()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.005"/>
+  <testcase name="search_rejectsWhenOriginEqualsDestination()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.002"/>
+  <testcase name="search_rejectsWhenTotalPaxExceedsNine()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.002"/>
+  <testcase name="search_computesRoundTripTotalIncludingHotel()" classname="com.atlas.search.search.service.SearchServiceImplTest" time="0.006"/>
+  <system-out><![CDATA[01:44:20.356 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=64854b77-376f-4149-9b75-98d53d4a0563, total=2, page=0/1, returned=2
+01:44:20.370 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=3072ca92-3f20-41b1-94ad-2f11b0be79af, total=0, page=0/0, returned=0
+01:44:20.378 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=b1d0cbe2-52fa-4e4d-935f-6f2fd721d295, total=1, page=0/1, returned=1
+01:44:20.394 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=e8a50307-5d4d-4b2f-8589-7ed347047b6a, total=0, page=0/0, returned=0
+01:44:20.402 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=a4ce504e-5ec4-47ab-b995-8865ef6cdf85, total=1, page=0/1, returned=1
+01:44:20.409 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=a6ca2869-0949-48a7-923e-34d6ac2a6f3f, total=2, page=0/2, returned=1
+01:44:20.414 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=534704f4-d4e4-4aaf-97da-d81822c49440, total=1, page=0/1, returned=1
+01:44:20.425 [Test worker] INFO com.atlas.search.search.service.SearchServiceImpl -- Search completed: searchId=1f690fe5-47e1-4b7d-a314-41f1868ea493, total=2, page=0/1, returned=2
+]]></system-out>
+  <system-err><![CDATA[Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+WARNING: A Java agent has been loaded dynamically (/Users/eduardopillco/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.17.7/fbf3d6d649ed37fc9e9c59480a05be0a26e3c2da/byte-buddy-agent-1.17.7.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+]]></system-err>
+</testsuite>

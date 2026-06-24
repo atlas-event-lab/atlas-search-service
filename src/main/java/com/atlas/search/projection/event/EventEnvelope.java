@@ -1,0 +1,32 @@
+package com.atlas.search.projection.event;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Common Atlas event envelope (message-envelope.md).
+ * Every Kafka message uses this structure; business payloads go inside {@code payload}.
+ *
+ * @param <T> the business payload type.
+ */
+public record EventEnvelope<T>(
+        @NotNull
+        UUID eventId,
+
+        @NotBlank
+        String eventType,
+
+        int eventVersion,
+        Instant occurredAt,
+        String traceId,
+        String correlationId,
+        String sagaId,
+        String producer,
+
+        @Valid
+        @NotNull
+        T payload
+) {}
