@@ -1,14 +1,14 @@
 package com.atlas.search.search.service;
 
-import com.atlas.search.search.dto.TripDetailDto;
-import com.atlas.search.search.dto.TripSearchRequest;
-import com.atlas.search.search.dto.TripSearchResponse;
+import com.atlas.search.search.dto.FlightSearchRequest;
+import com.atlas.search.search.dto.FlightSearchResponse;
+import com.atlas.search.search.dto.HotelSearchRequest;
+import com.atlas.search.search.dto.HotelSearchResponse;
 
-import java.util.UUID;
-
+/** Search queries — live reads of projections (no snapshots, no TTL). */
 public interface SearchService {
 
-    TripSearchResponse search(TripSearchRequest criteria);
+    FlightSearchResponse searchFlights(FlightSearchRequest criteria);
 
-    TripDetailDto getTrip(UUID tripId);
+    HotelSearchResponse searchHotels(HotelSearchRequest criteria);
 }

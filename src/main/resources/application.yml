@@ -44,12 +44,6 @@ spring:
         spring.json.value.default.type: com.atlas.search.projection.event.EventEnvelope
         spring.json.use.type.headers: 'false'
 
-atlas:
-  search:
-    trip-offer:
-      ttl: ${TRIP_OFFER_TTL:15m}
-      sweep-interval-ms: ${TRIP_OFFER_SWEEP_INTERVAL_MS:300000}
-
 management:
   endpoints:
     web:

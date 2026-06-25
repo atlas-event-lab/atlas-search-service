@@ -1,22 +1,19 @@
 package com.atlas.search.search.controller;
 
-import com.atlas.search.search.dto.TripDetailDto;
-import com.atlas.search.search.dto.TripSearchRequest;
-import com.atlas.search.search.dto.TripSearchResponse;
+import com.atlas.search.search.dto.FlightSearchRequest;
+import com.atlas.search.search.dto.FlightSearchResponse;
+import com.atlas.search.search.dto.HotelSearchRequest;
+import com.atlas.search.search.dto.HotelSearchResponse;
 import com.atlas.search.search.service.SearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 /**
- * Exposes the Search API (contracts/openapi/search.yaml).
+ * Exposes the Search API (search.yaml). Anonymous flight/hotel offer queries
+ * as live reads of projections (no snapshot, no TTL — ADR-0002).
  * Holds no business logic (API-003); delegates entirely to {@link SearchService}.
  */
 @RestController
@@ -25,22 +22,15 @@ public class SearchController {
 
     private final SearchService searchService;
 
-    /**
-     * GET /search/trips — Search bookable trips. Anonymous (no JWT required).
-     */
-    @PostMapping("/search/trips")
-    public ResponseEntity<TripSearchResponse> searchTrips(
-        @RequestBody @Valid TripSearchRequest criteria
-    ) {
-        return ResponseEntity.ok(searchService.search(criteria));
+    /** GET /search/flights — search bookable flights. Anonymous. */
+    @GetMapping("/search/flights")
+    public ResponseEntity<FlightSearchResponse> searchFlights(@Valid FlightSearchRequest criteria) {
+        return ResponseEntity.ok(searchService.searchFlights(criteria));
     }
 
-    /**
-     * GET /trips/{tripId} — Resolve a TripOffer snapshot. Anonymous.
-     * Returns 200 while TTL holds, 410 after expiry, 404 if unknown.
-     */
-    @GetMapping("/trips/{tripId}")
-    public ResponseEntity<TripDetailDto> getTrip(@PathVariable UUID tripId) {
-        return ResponseEntity.ok(searchService.getTrip(tripId));
+    /** GET /search/hotels — search bookable hotels. Anonymous. */
+    @GetMapping("/search/hotels")
+    public ResponseEntity<HotelSearchResponse> searchHotels(@Valid HotelSearchRequest criteria) {
+        return ResponseEntity.ok(searchService.searchHotels(criteria));
     }
 }

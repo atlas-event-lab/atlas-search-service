@@ -1,8 +1,6 @@
 package com.atlas.search.shared.exception;
 
 import com.atlas.search.search.exception.SearchValidationException;
-import com.atlas.search.search.exception.TripOfferExpiredException;
-import com.atlas.search.search.exception.TripOfferNotFoundException;
 import com.atlas.search.shared.web.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -84,24 +82,6 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Malformed request body",
                 ProblemTypes.VALIDATION, "Validation Error", request);
         return respond(HttpStatus.BAD_REQUEST, problem);
-    }
-
-    @ExceptionHandler(TripOfferNotFoundException.class)
-    public ResponseEntity<ProblemDetail> handleNotFound(
-            TripOfferNotFoundException ex, HttpServletRequest request) {
-
-        ProblemDetail problem = problem(HttpStatus.NOT_FOUND, ex.getMessage(),
-                ProblemTypes.NOT_FOUND, "Not Found", request);
-        return respond(HttpStatus.NOT_FOUND, problem);
-    }
-
-    @ExceptionHandler(TripOfferExpiredException.class)
-    public ResponseEntity<ProblemDetail> handleGone(
-            TripOfferExpiredException ex, HttpServletRequest request) {
-
-        ProblemDetail problem = problem(HttpStatus.GONE, ex.getMessage(),
-                ProblemTypes.GONE, "Gone", request);
-        return respond(HttpStatus.GONE, problem);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
