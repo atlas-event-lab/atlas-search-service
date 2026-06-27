@@ -1,5 +1,6 @@
 package com.atlas.search.projection.entity;
 
+import com.atlas.search.projection.dto.ImageDto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -8,9 +9,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -33,15 +37,12 @@ import java.util.UUID;
 public class HotelRoomType {
 
     @Id
-    @Column(name = "id", nullable = false, updatable = false)
+    @Column(name = "id", nullable = false, unique = true, updatable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hotel_id", nullable = false, updatable = false)
     private HotelProjection hotel;
-
-    @Column(name = "room_type_id", nullable = false, unique = true, updatable = false)
-    private UUID roomTypeId;
 
     @Column(name = "name", nullable = false, length = 100)
     private String name;
@@ -54,6 +55,10 @@ public class HotelRoomType {
 
     @Column(name = "max_occupancy", nullable = false)
     private int maxOccupancy;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "images", nullable = false, columnDefinition = "jsonb")
+    private List<ImageDto> images;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

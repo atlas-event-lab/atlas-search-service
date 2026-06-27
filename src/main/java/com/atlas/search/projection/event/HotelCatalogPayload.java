@@ -1,5 +1,6 @@
 package com.atlas.search.projection.event;
 
+import com.atlas.search.projection.dto.ImageDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -23,5 +24,5 @@ public record HotelCatalogPayload(
         @NotEmpty
         List<RoomTypeEvent> roomTypes,
         List<String> amenities,
-        List<String> images
+        List<ImageDto> images
 ) {}

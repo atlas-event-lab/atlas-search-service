@@ -13,7 +13,7 @@ import com.atlas.search.projection.event.RoomTypeEvent;
 import com.atlas.search.projection.repository.AvailabilityProjectionRepository;
 import com.atlas.search.projection.repository.ConsumedEventRepository;
 import com.atlas.search.projection.repository.FlightProjectionRepository;
-import com.atlas.search.projection.repository.HotelProjectionRepository;
+import com.atlas.search.projection.repository.HotelRoomTypeRepository;
 import com.atlas.search.shared.messaging.ConsumerEventType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ import java.util.UUID;
 public class ProjectionServiceImpl implements ProjectionService {
 
     private final FlightProjectionRepository flightRepo;
-    private final HotelProjectionRepository hotelRepo;
+    private final HotelRoomTypeRepository hotelRepo;
     private final AvailabilityProjectionRepository availRepo;
     private final ConsumedEventRepository consumedRepo;
 
@@ -87,9 +87,9 @@ public class ProjectionServiceImpl implements ProjectionService {
 
         UUID hotelId = payload.hotelId();
         HotelProjection hotel = hotelRepo.findById(hotelId).orElseGet(() -> {
-            HotelProjection h = new HotelProjection();
-            h.setId(hotelId);
-            return h;
+            HotelProjection projection = new HotelProjection();
+            projection.setId(hotelId);
+            return projection;
         });
 
         hotel.setName(payload.name());
@@ -97,21 +97,23 @@ public class ProjectionServiceImpl implements ProjectionService {
         hotel.setCountry(payload.country());
         hotel.setRating(payload.rating());
         hotel.setStatus(ProjectionStatus.ACTIVE);
+        hotel.setAmenities(payload.amenities());
+        hotel.setImages(payload.images());
 
-        // Replace room types; orphanRemoval handles deletion of removed ones.
         hotel.getRoomTypes().clear();
-        for (RoomTypeEvent rt : payload.roomTypes()) {
+
+        for (RoomTypeEvent roomTypeEvent : payload.roomTypes()) {
             HotelRoomType roomType = new HotelRoomType();
-            roomType.setId(UUID.randomUUID());
+            roomType.setId(roomTypeEvent.roomTypeId());
             roomType.setHotel(hotel);
-            roomType.setRoomTypeId(rt.roomTypeId());
-            roomType.setName(rt.name());
-            roomType.setPricePerNight(rt.pricePerNight().amount());
-            roomType.setCurrency(rt.pricePerNight().currency());
-            roomType.setMaxOccupancy(rt.maxOccupancy());
+            roomType.setName(roomTypeEvent.name());
+            roomType.setPricePerNight(roomTypeEvent.pricePerNight().amount());
+            roomType.setCurrency(roomTypeEvent.pricePerNight().currency());
+            roomType.setMaxOccupancy(roomTypeEvent.maxOccupancy());
+            roomType.setImages(roomTypeEvent.images());
             hotel.getRoomTypes().add(roomType);
 
-            upsertHotelRoomAvailability(rt.roomTypeId(), rt.totalRooms());
+            upsertHotelRoomAvailability(roomTypeEvent.roomTypeId(), roomTypeEvent.totalRooms());
         }
 
         hotelRepo.save(hotel);
@@ -126,8 +128,8 @@ public class ProjectionServiceImpl implements ProjectionService {
 
         hotelRepo.findById(hotelId).ifPresent(h -> {
             h.setStatus(ProjectionStatus.WITHDRAWN);
-            h.getRoomTypes().forEach(rt ->
-                    availRepo.findByResourceTypeAndResourceId(ResourceType.HOTEL, rt.getRoomTypeId())
+            h.getRoomTypes().forEach(roomType ->
+                    availRepo.findByResourceTypeAndResourceId(ResourceType.HOTEL, roomType.getId())
                             .ifPresent(a -> {
                                 a.setStatus(AvailabilityProjection.AvailabilityStatus.DISABLED);
                                 availRepo.save(a);

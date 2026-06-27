@@ -1,5 +1,6 @@
 package com.atlas.search.projection.entity;
 
+import com.atlas.search.projection.dto.ImageDto;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,6 +14,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -56,6 +59,14 @@ public class HotelProjection {
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<HotelRoomType> roomTypes = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "amenities", nullable = false, columnDefinition = "jsonb")
+    private List<String> amenities;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "images", nullable = false, columnDefinition = "jsonb")
+    private List<ImageDto> images;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

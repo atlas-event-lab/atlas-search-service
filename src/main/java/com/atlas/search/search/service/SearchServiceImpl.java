@@ -1,32 +1,43 @@
 package com.atlas.search.search.service;
 
+
 import com.atlas.search.projection.entity.AvailabilityProjection;
 import com.atlas.search.projection.entity.FlightProjection;
-import com.atlas.search.projection.entity.HotelProjection;
-import com.atlas.search.projection.entity.HotelRoomType;
-import com.atlas.search.projection.entity.ProjectionStatus;
 import com.atlas.search.projection.entity.ResourceType;
 import com.atlas.search.projection.repository.AvailabilityProjectionRepository;
 import com.atlas.search.projection.repository.FlightProjectionRepository;
-import com.atlas.search.projection.repository.HotelProjectionRepository;
+import com.atlas.search.projection.repository.FlightSpecification;
+import com.atlas.search.projection.repository.HotelRoomTypeRepository;
+import com.atlas.search.projection.repository.HotelSearchCustomRepository;
+import com.atlas.search.projection.repository.model.HotelRoomResult;
 import com.atlas.search.search.dto.FlightOffer;
 import com.atlas.search.search.dto.FlightSearchRequest;
+import com.atlas.search.search.dto.FlightSearchRequest.FlightSortOption;
 import com.atlas.search.search.dto.FlightSearchResponse;
-import com.atlas.search.search.dto.HotelOffer;
 import com.atlas.search.search.dto.HotelSearchRequest;
+import com.atlas.search.search.dto.HotelSearchRequest.HotelSortOption;
 import com.atlas.search.search.dto.HotelSearchResponse;
+import com.atlas.search.search.dto.HotelSearchResponse.HotelGroup;
+import com.atlas.search.search.dto.HotelSearchResponse.RoomDto;
 import com.atlas.search.search.dto.MoneyDto;
 import com.atlas.search.search.exception.SearchValidationException;
 import com.atlas.search.shared.exception.FieldErrorDetail;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,9 +50,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private final FlightProjectionRepository flightRepo;
-    private final HotelProjectionRepository hotelRepo;
-    private final AvailabilityProjectionRepository availRepo;
+    private final FlightProjectionRepository flightProjectionRepository;
+    private final HotelRoomTypeRepository hotelRoomTypeRepository;
+    private final HotelSearchCustomRepository hotelSearchCustomRepository;
+    private final AvailabilityProjectionRepository availabilityProjectionRepository;
     private final Clock clock;
 
     @Override
@@ -49,78 +61,112 @@ public class SearchServiceImpl implements SearchService {
     public FlightSearchResponse searchFlights(FlightSearchRequest criteria) {
         validateFlightCriteria(criteria);
 
-        int paxRequiringSeat = criteria.getAdults() + criteria.getChildren();
+        Specification<FlightProjection> spec =
+            FlightSpecification.withCriteria(criteria);
 
-        List<FlightProjection> flights = flightRepo.findByOriginDestinationAndDate(
-                criteria.getOrigin().toUpperCase(),
-                criteria.getDestination().toUpperCase(),
-                criteria.getDepartureDate(),
-                ProjectionStatus.ACTIVE);
+        Pageable pageable = PageRequest.of(
+            criteria.getPage(),
+            criteria.getSize(),
+            mapFlightSort(criteria.getSort())
+        );
 
-        if (criteria.getAirlines() != null && !criteria.getAirlines().isEmpty()) {
-            flights = flights.stream()
-                    .filter(f -> criteria.getAirlines().contains(f.getAirline()))
-                    .toList();
-        }
+        Page<FlightProjection> page = flightProjectionRepository.findAll(spec, pageable);
 
-        List<FlightOffer> offers = flights.stream()
-                .filter(f -> isAvailable(ResourceType.FLIGHT, f.getId(), paxRequiringSeat))
-                .map(f -> toFlightOffer(f, availableCount(ResourceType.FLIGHT, f.getId())))
-                .toList();
+        List<UUID> ids = page.getContent().stream()
+            .map(FlightProjection::getId)
+            .toList();
 
-        if (criteria.getMinPrice() != null) {
-            offers = offers.stream()
-                    .filter(o -> o.basePrice().amount().compareTo(criteria.getMinPrice()) >= 0)
-                    .toList();
-        }
-        if (criteria.getMaxPrice() != null) {
-            offers = offers.stream()
-                    .filter(o -> o.basePrice().amount().compareTo(criteria.getMaxPrice()) <= 0)
-                    .toList();
-        }
+        Map<UUID, Integer> availabilityMap =
+            availabilityProjectionRepository.findAllByResourceTypeAndResourceIdIn(ResourceType.FLIGHT, ids)
+                .stream()
+                .collect(Collectors.toMap(
+                    AvailabilityProjection::getResourceId,
+                    AvailabilityProjection::getAvailable
+                ));
 
-        offers = sortFlights(offers, criteria.getSort());
+        List<FlightOffer> offers = page.getContent().stream()
+            .map(flightProjection -> toFlightOffer(
+                flightProjection,
+                availabilityMap.getOrDefault(flightProjection.getId(), 0)
+            ))
+            .toList();
 
-        return paginateFlights(offers, criteria.getPage(), criteria.getSize());
+        return new FlightSearchResponse(
+            page.getNumber(),
+            page.getSize(),
+            page.getTotalElements(),
+            page.getTotalPages(),
+            offers
+        );
     }
 
     @Override
     @Transactional(readOnly = true)
     public HotelSearchResponse searchHotels(HotelSearchRequest criteria) {
+
         validateHotelCriteria(criteria);
 
-        int effectiveMinRating = criteria.getHotelRating() != null ? criteria.getHotelRating() : 1;
+        Pageable pageable = PageRequest.of(
+            criteria.getPage(),
+            criteria.getSize(),
+            mapHotelSort(criteria.getSort())
+        );
 
-        List<HotelProjection> hotels = hotelRepo.findActiveInCityWithRating(
-                criteria.getCity(), ProjectionStatus.ACTIVE, effectiveMinRating);
+        Page<HotelRoomResult> page =
+            hotelSearchCustomRepository.search(criteria, pageable);
 
-        List<HotelOffer> offers = new ArrayList<>();
-        for (HotelProjection hotel : hotels) {
-            for (HotelRoomType rt : hotel.getRoomTypes()) {
-                if (criteria.getGuests() != null && rt.getMaxOccupancy() < criteria.getGuests()) {
-                    continue;
-                }
-                if (!isAvailable(ResourceType.HOTEL, rt.getRoomTypeId(), criteria.getRooms())) {
-                    continue;
-                }
-                offers.add(toHotelOffer(hotel, rt, availableCount(ResourceType.HOTEL, rt.getRoomTypeId())));
-            }
-        }
+        Map<UUID, HotelGroup> hotelGroupMap = new LinkedHashMap<>();
 
-        if (criteria.getMinPrice() != null) {
-            offers = offers.stream()
-                    .filter(o -> o.pricePerNight().amount().compareTo(criteria.getMinPrice()) >= 0)
-                    .toList();
-        }
-        if (criteria.getMaxPrice() != null) {
-            offers = offers.stream()
-                    .filter(o -> o.pricePerNight().amount().compareTo(criteria.getMaxPrice()) <= 0)
-                    .toList();
-        }
+        page.getContent().forEach(rowResult ->
+            hotelGroupMap.computeIfAbsent(rowResult.hotelId(), id ->
+                HotelGroup.builder()
+                    .id(rowResult.hotelId())
+                    .name(rowResult.hotelName())
+                    .city(rowResult.city())
+                    .country(rowResult.country())
+                    .rating(rowResult.rating())
+                    .amenities(rowResult.amenities())
+                    .images(rowResult.hotelImages())
+                    .rooms(new ArrayList<>())
+                    .build()
+            ).rooms().add(
+                RoomDto.builder()
+                    .roomTypeId(rowResult.roomTypeId())
+                    .name(rowResult.roomName())
+                    .maxOccupancy(rowResult.maxOccupancy())
+                    .pricePerNight(new MoneyDto(rowResult.pricePerNight(), rowResult.currency()))
+                    .images(rowResult.roomImages())
+                    .roomsAvailable(rowResult.available())
+                    .build()
+            )
+        );
 
-        offers = sortHotels(offers, criteria.getSort());
+        return new HotelSearchResponse(
+            page.getNumber(),
+            page.getSize(),
+            page.getTotalElements(),
+            page.getTotalPages(),
+            new ArrayList<>(hotelGroupMap.values())
+        );
+    }
 
-        return paginateHotels(offers, criteria.getPage(), criteria.getSize());
+    private Sort mapHotelSort(HotelSortOption sort) {
+        if (sort == null) return Sort.by("rating").descending();
+
+        return switch (sort) {
+            case PRICE -> Sort.by("roomTypes.pricePerNight").ascending();
+            case RATING -> Sort.by("rating").descending();
+        };
+    }
+
+    private Sort mapFlightSort(FlightSortOption sort) {
+        if (sort == null) return Sort.by("departureTime").ascending();
+
+        return switch (sort) {
+            case FlightSortOption.PRICE -> Sort.by("basePrice").ascending();
+            case FlightSortOption.DEPARTURE_TIME -> Sort.by("departureTime").ascending();
+            case FlightSortOption.DURATION -> Sort.by("durationMinutes").ascending();
+        };
     }
 
     // ── Validation ────────────────────────────────────────────────────────────
@@ -145,15 +191,20 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
-    private void validateHotelCriteria(HotelSearchRequest c) {
+    private void validateHotelCriteria(HotelSearchRequest criteria) {
         List<FieldErrorDetail> errors = new ArrayList<>();
 
-        if (c.getCheckIn() != null && c.getCheckIn().isBefore(LocalDate.now(clock))) {
+        if (criteria.getCheckIn() != null && criteria.getCheckIn().isBefore(LocalDate.now(clock))) {
             errors.add(new FieldErrorDetail("checkIn", "checkIn must be today or in the future"));
         }
-        if (c.getCheckIn() != null && c.getCheckOut() != null
-                && !c.getCheckOut().isAfter(c.getCheckIn())) {
+        if (criteria.getCheckIn() != null && criteria.getCheckOut() != null
+                && !criteria.getCheckOut().isAfter(criteria.getCheckIn())) {
             errors.add(new FieldErrorDetail("checkOut", "checkOut must be after checkIn"));
+        }
+
+        if (criteria.getMinPrice() != null && criteria.getMaxPrice() != null
+            && criteria.getMinPrice().compareTo(criteria.getMaxPrice()) > 0 ) {
+            errors.add(new FieldErrorDetail("minPrice", "minPrice must be less than maxPrice"));
         }
 
         if (!errors.isEmpty()) {
@@ -161,77 +212,19 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
-    // ── Availability ──────────────────────────────────────────────────────────
-
-    private boolean isAvailable(ResourceType type, UUID resourceId, int required) {
-        return availRepo.findByResourceTypeAndResourceId(type, resourceId)
-                .map(a -> a.getStatus() == AvailabilityProjection.AvailabilityStatus.ACTIVE
-                        && a.getAvailable() >= required)
-                .orElse(false);
-    }
-
-    private int availableCount(ResourceType type, UUID resourceId) {
-        return availRepo.findByResourceTypeAndResourceId(type, resourceId)
-                .map(AvailabilityProjection::getAvailable)
-                .orElse(0);
-    }
-
     // ── DTO mapping ───────────────────────────────────────────────────────────
 
-    private FlightOffer toFlightOffer(FlightProjection f, int available) {
+    private FlightOffer toFlightOffer(FlightProjection projection, int available) {
         return new FlightOffer(
-                f.getId(), f.getAirline(), f.getOrigin(), f.getDestination(),
-                f.getDepartureTime(), f.getArrivalTime(), f.getDurationMinutes(), f.getStops(),
-                new MoneyDto(f.getBasePrice(), f.getCurrency()), available);
-    }
-
-    private HotelOffer toHotelOffer(HotelProjection h, HotelRoomType rt, int available) {
-        return new HotelOffer(
-                h.getId(), h.getName(), h.getCity(), h.getCountry(), h.getRating(),
-                rt.getRoomTypeId(), rt.getName(), rt.getMaxOccupancy(),
-                new MoneyDto(rt.getPricePerNight(), rt.getCurrency()), available);
-    }
-
-    // ── Sorting ───────────────────────────────────────────────────────────────
-
-    private List<FlightOffer> sortFlights(List<FlightOffer> offers, FlightSearchRequest.FlightSortOption sort) {
-        FlightSearchRequest.FlightSortOption effective = sort != null ? sort : FlightSearchRequest.FlightSortOption.PRICE;
-        Comparator<FlightOffer> comparator = switch (effective) {
-            case PRICE -> Comparator.comparing(o -> o.basePrice().amount());
-            case DEPARTURE_TIME -> Comparator.comparing(FlightOffer::departureTime);
-            case DURATION -> Comparator.comparingInt(FlightOffer::durationMinutes);
-        };
-        return offers.stream().sorted(comparator).toList();
-    }
-
-    private List<HotelOffer> sortHotels(List<HotelOffer> offers, HotelSearchRequest.HotelSortOption sort) {
-        HotelSearchRequest.HotelSortOption effective = sort != null ? sort : HotelSearchRequest.HotelSortOption.PRICE;
-        Comparator<HotelOffer> comparator = switch (effective) {
-            case PRICE -> Comparator.comparing(o -> o.pricePerNight().amount());
-            case RATING -> Comparator.comparingInt(HotelOffer::rating).reversed();
-        };
-        return offers.stream().sorted(comparator).toList();
-    }
-
-    // ── Pagination ────────────────────────────────────────────────────────────
-
-    private FlightSearchResponse paginateFlights(List<FlightOffer> offers, int page, int size) {
-        long totalElements = offers.size();
-        int totalPages = (int) Math.ceil((double) totalElements / size);
-        List<FlightOffer> pageContent = offers.stream()
-                .skip((long) page * size)
-                .limit(size)
-                .toList();
-        return new FlightSearchResponse(page, size, totalElements, totalPages, pageContent);
-    }
-
-    private HotelSearchResponse paginateHotels(List<HotelOffer> offers, int page, int size) {
-        long totalElements = offers.size();
-        int totalPages = (int) Math.ceil((double) totalElements / size);
-        List<HotelOffer> pageContent = offers.stream()
-                .skip((long) page * size)
-                .limit(size)
-                .toList();
-        return new HotelSearchResponse(page, size, totalElements, totalPages, pageContent);
+            projection.getId(),
+            projection.getAirline(),
+            projection.getOrigin(),
+            projection.getDestination(),
+            projection.getDepartureTime(),
+            projection.getArrivalTime(),
+            projection.getDurationMinutes(),
+            projection.getStops(),
+            new MoneyDto(projection.getBasePrice(), projection.getCurrency()), available
+        );
     }
 }

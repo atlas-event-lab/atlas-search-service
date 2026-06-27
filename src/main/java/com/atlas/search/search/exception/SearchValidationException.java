@@ -3,7 +3,9 @@ package com.atlas.search.search.exception;
 import com.atlas.search.shared.exception.FieldErrorDetail;
 
 import java.util.List;
+import lombok.Getter;
 
+@Getter
 public class SearchValidationException extends RuntimeException {
 
     private final List<FieldErrorDetail> errors;
@@ -18,7 +20,4 @@ public class SearchValidationException extends RuntimeException {
         this.errors = List.of(new FieldErrorDetail(field, message));
     }
 
-    public List<FieldErrorDetail> getErrors() {
-        return errors;
-    }
 }

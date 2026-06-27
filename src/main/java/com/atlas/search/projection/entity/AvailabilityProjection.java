@@ -42,10 +42,10 @@ public class AvailabilityProjection {
     private UUID resourceId;
 
     @Column(name = "capacity", nullable = false)
-    private int capacity;
+    private Integer capacity;
 
     @Column(name = "reserved", nullable = false)
-    private int reserved;
+    private Integer reserved;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

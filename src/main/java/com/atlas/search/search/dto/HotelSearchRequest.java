@@ -34,11 +34,12 @@ public class HotelSearchRequest {
     @Min(1)
     private Integer rooms = 1;
 
+    @NotNull
     @Min(1)
     private Integer guests;
 
     @Min(1) @Max(5)
-    private Integer hotelRating;
+    private Integer hotelRating = 1;
 
     private BigDecimal minPrice;
     private BigDecimal maxPrice;

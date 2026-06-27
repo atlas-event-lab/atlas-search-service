@@ -1,8 +1,10 @@
 package com.atlas.search.projection.event;
 
+import com.atlas.search.projection.dto.ImageDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -17,5 +19,7 @@ public record RoomTypeEvent(
         int maxOccupancy,
 
         @Valid
-        MoneyEvent pricePerNight
+        MoneyEvent pricePerNight,
+
+        List<ImageDto> images
 ) {}
