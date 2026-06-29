@@ -25,6 +25,13 @@ public class SecurityConfig {
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    String[] publicMatchers = new String[]{
+        "/swagger-ui/**",
+        "/swagger-resources/**",
+        "/swagger-ui.html",
+        "/v3/api-docs**",
+    };
+
     return http
         .csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
@@ -33,6 +40,7 @@ public class SecurityConfig {
         .cors(Customizer.withDefaults())
         .httpBasic(AbstractHttpConfigurer::disable)
         .authorizeHttpRequests(auth -> auth
+            .requestMatchers(publicMatchers).permitAll()
             .requestMatchers("/actuator/health", "/actuator/info").permitAll()
             .requestMatchers(HttpMethod.GET, "/search/flights").permitAll()
             .requestMatchers(HttpMethod.GET, "/search/hotels").permitAll()
