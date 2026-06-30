@@ -42,9 +42,9 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(publicMatchers).permitAll()
             .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-            .requestMatchers(HttpMethod.GET, "/search/flights").permitAll()
-            .requestMatchers(HttpMethod.GET, "/search/hotels").permitAll()
-            .requestMatchers(HttpMethod.GET, "/me/bookings").authenticated()
+            .requestMatchers(HttpMethod.GET, "/api/v1/search/flights").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/search/hotels").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/me/bookings").authenticated()
             .anyRequest().denyAll()
         )
         .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
