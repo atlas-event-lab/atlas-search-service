@@ -13,6 +13,7 @@ import com.atlas.search.search.dto.HotelSearchRequest;
 import com.atlas.search.search.dto.HotelSearchResponse;
 import com.atlas.search.search.service.SearchService;
 import com.atlas.search.shared.exception.GlobalExceptionHandler;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -31,6 +32,9 @@ class SearchControllerTest {
 
   @MockitoBean
   private SearchService searchService;
+
+  @MockitoBean
+  private Tracer trace;
 
   @Test
   void searchFlights_returns200WithResults_whenCriteriaValid() throws Exception {

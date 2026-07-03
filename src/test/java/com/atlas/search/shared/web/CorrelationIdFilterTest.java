@@ -2,72 +2,97 @@ package com.atlas.search.shared.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import io.micrometer.tracing.Baggage;
+import io.micrometer.tracing.BaggageInScope;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import java.io.IOException;
 import java.util.UUID;
 import org.jspecify.annotations.NonNull;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.MDC;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+/**
+ * The filter no longer owns traceId/spanId (Micrometer Tracing does) — it only resolves a
+ * {@code correlationId} and opens it as baggage. MDC population is Micrometer's job (baggage
+ * correlation-fields), so these unit tests assert the filter's own responsibility: resolve
+ * order (baggage -> header -> UUID), echo the response header, and always close the scope.
+ */
 class CorrelationIdFilterTest {
 
-  private final CorrelationIdFilter filter = new CorrelationIdFilter();
+  private final Tracer tracer = mock(Tracer.class);
+  private final BaggageInScope baggageInScope = mock(BaggageInScope.class);
+  private final CorrelationIdFilter filter = new CorrelationIdFilter(tracer);
 
-  @AfterEach
-  void tearDown() {
-    MDC.clear();
+  @BeforeEach
+  void setUp() {
+    when(tracer.createBaggageInScope(eq(CorrelationIdFilter.MDC_KEY), anyString()))
+        .thenReturn(baggageInScope);
   }
 
   @Test
-  void doFilterInternal_generatesNewCorrelationAndTraceId_whenHeadersAbsent()
-      throws ServletException, IOException {
+  void generatesNewCorrelationId_whenHeaderAbsent() throws ServletException, IOException {
+    when(tracer.getBaggage(CorrelationIdFilter.MDC_KEY)).thenReturn(null);
     MockHttpServletRequest request = new MockHttpServletRequest();
     MockHttpServletResponse response = new MockHttpServletResponse();
-    MockFilterChain chain = new MockFilterChain();
 
-    filter.doFilter(request, response, chain);
+    filter.doFilter(request, response, new MockFilterChain());
 
     String correlationId = response.getHeader(CorrelationIdFilter.CORRELATION_ID_HEADER);
-    String traceId = response.getHeader(CorrelationIdFilter.TRACE_ID_HEADER);
-    Assertions.assertNotNull(correlationId);
+    assertThat(correlationId).isNotBlank();
     assertThat(UUID.fromString(correlationId)).isNotNull();
-    Assertions.assertNotNull(traceId);
-    assertThat(UUID.fromString(traceId)).isNotNull();
+    verify(tracer).createBaggageInScope(CorrelationIdFilter.MDC_KEY, correlationId);
+    verify(baggageInScope).close();
   }
 
   @Test
-  void doFilterInternal_echoesProvidedCorrelationAndTraceId_whenHeadersPresent()
-      throws ServletException, IOException {
+  void echoesProvidedCorrelationId_whenHeaderPresent() throws ServletException, IOException {
+    when(tracer.getBaggage(CorrelationIdFilter.MDC_KEY)).thenReturn(null);
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.addHeader(CorrelationIdFilter.CORRELATION_ID_HEADER, "given-correlation-id");
-    request.addHeader(CorrelationIdFilter.TRACE_ID_HEADER, "given-trace-id");
     MockHttpServletResponse response = new MockHttpServletResponse();
-    MockFilterChain chain = new MockFilterChain();
 
-    filter.doFilter(request, response, chain);
+    filter.doFilter(request, response, new MockFilterChain());
 
-    assertThat(response.getHeader(CorrelationIdFilter.CORRELATION_ID_HEADER)).isEqualTo(
-        "given-correlation-id");
-    assertThat(response.getHeader(CorrelationIdFilter.TRACE_ID_HEADER)).isEqualTo("given-trace-id");
+    assertThat(response.getHeader(CorrelationIdFilter.CORRELATION_ID_HEADER))
+        .isEqualTo("given-correlation-id");
+    verify(tracer).createBaggageInScope(CorrelationIdFilter.MDC_KEY, "given-correlation-id");
   }
 
   @Test
-  void doFilterInternal_generatesNewCorrelationId_whenHeaderIsBlank()
-      throws ServletException, IOException {
+  void reusesPropagatedBaggage_overHeader_whenPresent() throws ServletException, IOException {
+    Baggage propagated = mock(Baggage.class);
+    when(propagated.get()).thenReturn("propagated-id");
+    when(tracer.getBaggage(CorrelationIdFilter.MDC_KEY)).thenReturn(propagated);
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader(CorrelationIdFilter.CORRELATION_ID_HEADER, "header-id"); // baggage wins
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    filter.doFilter(request, response, new MockFilterChain());
+
+    assertThat(response.getHeader(CorrelationIdFilter.CORRELATION_ID_HEADER)).isEqualTo("propagated-id");
+    verify(tracer).createBaggageInScope(CorrelationIdFilter.MDC_KEY, "propagated-id");
+  }
+
+  @Test
+  void generatesNewCorrelationId_whenHeaderIsBlank() throws ServletException, IOException {
+    when(tracer.getBaggage(CorrelationIdFilter.MDC_KEY)).thenReturn(null);
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.addHeader(CorrelationIdFilter.CORRELATION_ID_HEADER, "   ");
     MockHttpServletResponse response = new MockHttpServletResponse();
-    MockFilterChain chain = new MockFilterChain();
 
-    filter.doFilter(request, response, chain);
+    filter.doFilter(request, response, new MockFilterChain());
 
     String correlationId = response.getHeader(CorrelationIdFilter.CORRELATION_ID_HEADER);
     assertThat(correlationId).isNotBlank();
@@ -75,46 +100,11 @@ class CorrelationIdFilterTest {
   }
 
   @Test
-  void doFilterInternal_putsIdsInMdcDuringChainExecution() throws ServletException, IOException {
-    MockHttpServletRequest request = new MockHttpServletRequest();
-    request.addHeader(CorrelationIdFilter.CORRELATION_ID_HEADER, "given-correlation-id");
-    request.addHeader(CorrelationIdFilter.TRACE_ID_HEADER, "given-trace-id");
-    MockHttpServletResponse response = new MockHttpServletResponse();
-
-    String[] mdcCorrelationId = new String[1];
-    String[] mdcTraceId = new String[1];
-    MockFilterChain chain = new MockFilterChain() {
-      @Override
-      public void doFilter(@NonNull ServletRequest req,
-          @NonNull ServletResponse res) {
-        mdcCorrelationId[0] = MDC.get(CorrelationIdFilter.MDC_KEY);
-        mdcTraceId[0] = MDC.get(CorrelationIdFilter.TRACE_ID_MDC_KEY);
-      }
-    };
-
-    filter.doFilter(request, response, chain);
-
-    assertThat(mdcCorrelationId[0]).isEqualTo("given-correlation-id");
-    assertThat(mdcTraceId[0]).isEqualTo("given-trace-id");
-  }
-
-  @Test
-  void doFilterInternal_clearsMdc_afterChainCompletes() throws ServletException, IOException {
+  void closesBaggageScopeAndPropagatesException_whenChainThrows() {
+    when(tracer.getBaggage(CorrelationIdFilter.MDC_KEY)).thenReturn(null);
     MockHttpServletRequest request = new MockHttpServletRequest();
     MockHttpServletResponse response = new MockHttpServletResponse();
-    MockFilterChain chain = new MockFilterChain();
-
-    filter.doFilter(request, response, chain);
-
-    assertThat(MDC.get(CorrelationIdFilter.MDC_KEY)).isNull();
-    assertThat(MDC.get(CorrelationIdFilter.TRACE_ID_MDC_KEY)).isNull();
-  }
-
-  @Test
-  void doFilterInternal_clearsMdcAndPropagatesException_whenChainThrows() {
-    MockHttpServletRequest request = new MockHttpServletRequest();
-    MockHttpServletResponse response = new MockHttpServletResponse();
-    MockFilterChain chain = new MockFilterChain() {
+    MockFilterChain throwingChain = new MockFilterChain() {
       @Override
       public void doFilter(@NonNull ServletRequest req, @NonNull ServletResponse res)
           throws IOException {
@@ -122,8 +112,8 @@ class CorrelationIdFilterTest {
       }
     };
 
-    assertThatThrownBy(() -> filter.doFilter(request, response, chain))
+    assertThatThrownBy(() -> filter.doFilter(request, response, throwingChain))
         .isInstanceOf(IOException.class);
-    assertThat(MDC.get(CorrelationIdFilter.MDC_KEY)).isNull();
+    verify(baggageInScope).close();
   }
 }
