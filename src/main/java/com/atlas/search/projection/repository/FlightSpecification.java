@@ -1,12 +1,10 @@
 package com.atlas.search.projection.repository;
 
-import com.atlas.search.projection.dto.ImageDto;
 import com.atlas.search.projection.entity.AvailabilityProjection;
 import com.atlas.search.projection.entity.FlightProjection;
 import com.atlas.search.projection.entity.ProjectionStatus;
 import com.atlas.search.projection.entity.ResourceType;
 import com.atlas.search.search.dto.FlightSearchRequest;
-import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
