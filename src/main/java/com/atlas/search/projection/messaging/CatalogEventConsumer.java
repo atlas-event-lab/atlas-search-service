@@ -75,7 +75,7 @@ public class CatalogEventConsumer {
     eventValidator.validate(envelope);
     UUID eventId = envelope.eventId();
     UUID flightId = envelope.payload().flightId();
-    log.debug("Received FlightDeleted: eventId={}, flightId={}", eventId, flightId);
+    log.info("Received FlightDeleted: eventId={}, flightId={}", eventId, flightId);
     projectionService.disableFlight(eventId, flightId);
   }
 
@@ -113,7 +113,7 @@ public class CatalogEventConsumer {
     eventValidator.validate(envelope);
     UUID eventId = envelope.eventId();
     UUID hotelId = envelope.payload().hotelId();
-    log.debug("Received HotelDeleted: eventId={}, hotelId={}", eventId, hotelId);
+    log.info("Received HotelDeleted: eventId={}, hotelId={}", eventId, hotelId);
     projectionService.disableHotel(eventId, hotelId);
   }
 
@@ -123,7 +123,7 @@ public class CatalogEventConsumer {
       ConsumerEventType eventType) {
     eventValidator.validate(envelope);
     UUID eventId = envelope.eventId();
-    log.debug("Received {}: eventId={}", eventType, eventId);
+    log.info("Received {}: eventId={}", eventType, eventId);
     projectionService.upsertFlight(eventId, eventType, envelope.payload());
   }
 
@@ -131,7 +131,7 @@ public class CatalogEventConsumer {
       ConsumerEventType eventType) {
     eventValidator.validate(envelope);
     UUID eventId = envelope.eventId();
-    log.debug("Received {}: eventId={}", eventType, eventId);
+    log.info("Received {}: eventId={}", eventType, eventId);
     projectionService.upsertHotel(eventId, eventType, envelope.payload());
   }
 }

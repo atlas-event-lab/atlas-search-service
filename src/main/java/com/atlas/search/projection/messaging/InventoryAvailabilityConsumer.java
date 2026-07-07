@@ -121,7 +121,7 @@ public class InventoryAvailabilityConsumer {
     UUID resourceId = payload.resourceId();
     int quantity = payload.quantity();
 
-    log.debug("Received {}: eventId={}, resourceType={}, resourceId={}, qty={}",
+    log.info("Received {}: eventId={}, resourceType={}, resourceId={}, qty={}",
         eventType, eventId, resourceType, resourceId, quantity);
 
     if (increment) {

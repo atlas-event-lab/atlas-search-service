@@ -29,10 +29,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProjectionServiceImpl implements ProjectionService {
 
-    private final FlightProjectionRepository flightRepo;
-    private final HotelRoomTypeRepository hotelRepo;
-    private final AvailabilityProjectionRepository availRepo;
-    private final ConsumedEventRepository consumedRepo;
+    private final FlightProjectionRepository flightProjectionRepository;
+    private final HotelRoomTypeRepository hotelRoomTypeRepository;
+    private final AvailabilityProjectionRepository availabilityProjectionRepository;
+    private final ConsumedEventRepository consumedEventRepository;
 
     @Override
     @Transactional
@@ -40,7 +40,7 @@ public class ProjectionServiceImpl implements ProjectionService {
         if (alreadyConsumed(eventId, eventType)) return;
 
         UUID flightId = payload.flightId();
-        FlightProjection flight = flightRepo.findById(flightId).orElseGet(() -> {
+        FlightProjection flight = flightProjectionRepository.findById(flightId).orElseGet(() -> {
             FlightProjection f = new FlightProjection();
             f.setId(flightId);
             return f;
@@ -55,7 +55,7 @@ public class ProjectionServiceImpl implements ProjectionService {
         flight.setBasePrice(payload.basePrice().amount());
         flight.setCurrency(payload.basePrice().currency());
         flight.setStatus(ProjectionStatus.ACTIVE);
-        flightRepo.save(flight);
+        flightProjectionRepository.save(flight);
 
         upsertFlightAvailability(flightId, payload.totalSeats());
 
@@ -68,13 +68,13 @@ public class ProjectionServiceImpl implements ProjectionService {
     public void disableFlight(UUID eventId, UUID flightId) {
         if (alreadyConsumed(eventId, ConsumerEventType.FLIGHT_DELETED)) return;
 
-        flightRepo.findById(flightId).ifPresent(f -> {
+        flightProjectionRepository.findById(flightId).ifPresent(f -> {
             f.setStatus(ProjectionStatus.WITHDRAWN);
-            flightRepo.save(f);
+            flightProjectionRepository.save(f);
         });
-        availRepo.findByResourceTypeAndResourceId(ResourceType.FLIGHT, flightId).ifPresent(a -> {
+        availabilityProjectionRepository.findByResourceTypeAndResourceId(ResourceType.FLIGHT, flightId).ifPresent(a -> {
             a.setStatus(AvailabilityProjection.AvailabilityStatus.DISABLED);
-            availRepo.save(a);
+            availabilityProjectionRepository.save(a);
         });
         markConsumed(eventId, ConsumerEventType.FLIGHT_DELETED);
         log.info("Disabled FlightProjection: flightId={}", flightId);
@@ -86,7 +86,7 @@ public class ProjectionServiceImpl implements ProjectionService {
         if (alreadyConsumed(eventId, eventType)) return;
 
         UUID hotelId = payload.hotelId();
-        HotelProjection hotel = hotelRepo.findById(hotelId).orElseGet(() -> {
+        HotelProjection hotel = hotelRoomTypeRepository.findById(hotelId).orElseGet(() -> {
             HotelProjection projection = new HotelProjection();
             projection.setId(hotelId);
             return projection;
@@ -116,7 +116,7 @@ public class ProjectionServiceImpl implements ProjectionService {
             upsertHotelRoomAvailability(roomTypeEvent.roomTypeId(), roomTypeEvent.totalRooms());
         }
 
-        hotelRepo.save(hotel);
+        hotelRoomTypeRepository.save(hotel);
         markConsumed(eventId, eventType);
         log.info("Upserted HotelProjection: hotelId={}", hotelId);
     }
@@ -126,16 +126,16 @@ public class ProjectionServiceImpl implements ProjectionService {
     public void disableHotel(UUID eventId, UUID hotelId) {
         if (alreadyConsumed(eventId, ConsumerEventType.HOTEL_DELETED)) return;
 
-        hotelRepo.findById(hotelId).ifPresent(h -> {
-            h.setStatus(ProjectionStatus.WITHDRAWN);
-            h.getRoomTypes().forEach(roomType ->
-                    availRepo.findByResourceTypeAndResourceId(ResourceType.HOTEL, roomType.getId())
+        hotelRoomTypeRepository.findById(hotelId).ifPresent(hotelProjection -> {
+            hotelProjection.setStatus(ProjectionStatus.WITHDRAWN);
+            hotelProjection.getRoomTypes().forEach(roomType ->
+                    availabilityProjectionRepository.findByResourceTypeAndResourceId(ResourceType.HOTEL, roomType.getId())
                             .ifPresent(a -> {
                                 a.setStatus(AvailabilityProjection.AvailabilityStatus.DISABLED);
-                                availRepo.save(a);
+                                availabilityProjectionRepository.save(a);
                             })
             );
-            hotelRepo.save(h);
+            hotelRoomTypeRepository.save(hotelProjection);
         });
         markConsumed(eventId, ConsumerEventType.HOTEL_DELETED);
         log.info("Disabled HotelProjection: hotelId={}", hotelId);
@@ -143,30 +143,42 @@ public class ProjectionServiceImpl implements ProjectionService {
 
     @Override
     @Transactional
-    public void incrementReserved(UUID eventId, ConsumerEventType eventType, ResourceType resourceType,
-                                  UUID resourceId, int quantity) {
-        if (alreadyConsumed(eventId, eventType)) return;
+    public void incrementReserved(UUID eventId, ConsumerEventType eventType,
+        ResourceType resourceType,
+        UUID resourceId, int quantity) {
+        if (alreadyConsumed(eventId, eventType)) {
+            return;
+        }
 
-        availRepo.findByResourceTypeAndResourceId(resourceType, resourceId).ifPresentOrElse(a -> {
-            a.setReserved(a.getReserved() + quantity);
-            availRepo.save(a);
-            log.debug("Incremented reserved: resourceType={}, resourceId={}, qty={}", resourceType, resourceId, quantity);
-        }, () -> log.warn("AvailabilityProjection not found for increment: type={}, id={}", resourceType, resourceId));
+        availabilityProjectionRepository.findByResourceTypeAndResourceId(resourceType, resourceId)
+            .ifPresentOrElse(projection -> {
+                projection.setReserved(projection.getReserved() + quantity);
+                availabilityProjectionRepository.save(projection);
+                log.info("Incremented reserved: resourceType={}, resourceId={}, qty={}",
+                    resourceType, resourceId, quantity);
+            }, () -> log.warn("AvailabilityProjection not found for increment: type={}, id={}",
+                resourceType, resourceId));
 
         markConsumed(eventId, eventType);
     }
 
     @Override
     @Transactional
-    public void decrementReserved(UUID eventId, ConsumerEventType eventType, ResourceType resourceType,
-                                  UUID resourceId, int quantity) {
-        if (alreadyConsumed(eventId, eventType)) return;
+    public void decrementReserved(UUID eventId, ConsumerEventType eventType,
+        ResourceType resourceType,
+        UUID resourceId, int quantity) {
+        if (alreadyConsumed(eventId, eventType)) {
+            return;
+        }
 
-        availRepo.findByResourceTypeAndResourceId(resourceType, resourceId).ifPresentOrElse(a -> {
-            a.setReserved(Math.max(0, a.getReserved() - quantity));
-            availRepo.save(a);
-            log.debug("Decremented reserved: resourceType={}, resourceId={}, qty={}", resourceType, resourceId, quantity);
-        }, () -> log.warn("AvailabilityProjection not found for decrement: type={}, id={}", resourceType, resourceId));
+        availabilityProjectionRepository.findByResourceTypeAndResourceId(resourceType, resourceId)
+            .ifPresentOrElse(projection -> {
+                projection.setReserved(Math.max(0, projection.getReserved() - quantity));
+                availabilityProjectionRepository.save(projection);
+                log.info("Decremented reserved: resourceType={}, resourceId={}, qty={}",
+                    resourceType, resourceId, quantity);
+            }, () -> log.warn("AvailabilityProjection not found for decrement: type={}, id={}",
+                resourceType, resourceId));
 
         markConsumed(eventId, eventType);
     }
@@ -174,40 +186,40 @@ public class ProjectionServiceImpl implements ProjectionService {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void upsertFlightAvailability(UUID flightId, int totalSeats) {
-        AvailabilityProjection avail = availRepo
+        AvailabilityProjection avail = availabilityProjectionRepository
                 .findByResourceTypeAndResourceId(ResourceType.FLIGHT, flightId)
                 .orElseGet(() -> {
-                    AvailabilityProjection a = new AvailabilityProjection();
-                    a.setId(UUID.randomUUID());
-                    a.setResourceType(ResourceType.FLIGHT);
-                    a.setResourceId(flightId);
-                    a.setReserved(0);
-                    return a;
+                    AvailabilityProjection projection = new AvailabilityProjection();
+                    projection.setId(UUID.randomUUID());
+                    projection.setResourceType(ResourceType.FLIGHT);
+                    projection.setResourceId(flightId);
+                    projection.setReserved(0);
+                    return projection;
                 });
         avail.setCapacity(totalSeats);
         avail.setStatus(AvailabilityProjection.AvailabilityStatus.ACTIVE);
-        availRepo.save(avail);
+        availabilityProjectionRepository.save(avail);
     }
 
     private void upsertHotelRoomAvailability(UUID roomTypeId, int totalRooms) {
-        AvailabilityProjection avail = availRepo
+        AvailabilityProjection avail = availabilityProjectionRepository
                 .findByResourceTypeAndResourceId(ResourceType.HOTEL, roomTypeId)
                 .orElseGet(() -> {
-                    AvailabilityProjection a = new AvailabilityProjection();
-                    a.setId(UUID.randomUUID());
-                    a.setResourceType(ResourceType.HOTEL);
-                    a.setResourceId(roomTypeId);
-                    a.setReserved(0);
-                    return a;
+                    AvailabilityProjection projection = new AvailabilityProjection();
+                    projection.setId(UUID.randomUUID());
+                    projection.setResourceType(ResourceType.HOTEL);
+                    projection.setResourceId(roomTypeId);
+                    projection.setReserved(0);
+                    return projection;
                 });
         avail.setCapacity(totalRooms);
         avail.setStatus(AvailabilityProjection.AvailabilityStatus.ACTIVE);
-        availRepo.save(avail);
+        availabilityProjectionRepository.save(avail);
     }
 
     private boolean alreadyConsumed(UUID eventId, ConsumerEventType eventType) {
-        if (consumedRepo.existsById(eventId)) {
-            log.debug("Skipping duplicate event: eventId={}, type={}", eventId, eventType);
+        if (consumedEventRepository.existsById(eventId)) {
+            log.info("Skipping duplicate event: eventId={}, type={}", eventId, eventType);
             return true;
         }
         return false;
@@ -215,10 +227,10 @@ public class ProjectionServiceImpl implements ProjectionService {
 
     private void markConsumed(UUID eventId, ConsumerEventType eventType) {
         try {
-            consumedRepo.save(new ConsumedEvent(eventId, eventType));
+            consumedEventRepository.save(new ConsumedEvent(eventId, eventType));
         } catch (DataIntegrityViolationException ex) {
             // Race condition: another thread inserted first — idempotent, safe to ignore.
-            log.debug("Consumed event already recorded (race): eventId={}", eventId);
+            log.error("Consumed event already recorded (race): eventId={}", eventId);
         }
     }
 
