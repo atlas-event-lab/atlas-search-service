@@ -7,7 +7,6 @@ import com.atlas.search.projection.entity.ResourceType;
 import com.atlas.search.projection.repository.AvailabilityProjectionRepository;
 import com.atlas.search.projection.repository.FlightProjectionRepository;
 import com.atlas.search.projection.repository.FlightSpecification;
-import com.atlas.search.projection.repository.HotelRoomTypeRepository;
 import com.atlas.search.projection.repository.HotelSearchCustomRepository;
 import com.atlas.search.projection.repository.model.HotelRoomResult;
 import com.atlas.search.search.dto.FlightOffer;
@@ -51,7 +50,6 @@ import java.util.UUID;
 public class SearchServiceImpl implements SearchService {
 
     private final FlightProjectionRepository flightProjectionRepository;
-    private final HotelRoomTypeRepository hotelRoomTypeRepository;
     private final HotelSearchCustomRepository hotelSearchCustomRepository;
     private final AvailabilityProjectionRepository availabilityProjectionRepository;
     private final Clock clock;
@@ -91,6 +89,7 @@ public class SearchServiceImpl implements SearchService {
             ))
             .toList();
 
+        log.info("SearchFlights - flights found = {}", page.getTotalElements());
         return new FlightSearchResponse(
             page.getNumber(),
             page.getSize(),
@@ -141,6 +140,7 @@ public class SearchServiceImpl implements SearchService {
             )
         );
 
+        log.info("SearchHotels - rooms found = {}", page.getTotalElements());
         return new HotelSearchResponse(
             page.getNumber(),
             page.getSize(),
@@ -187,6 +187,7 @@ public class SearchServiceImpl implements SearchService {
         }
 
         if (!errors.isEmpty()) {
+            log.error("Search criteria validation failed");
             throw new SearchValidationException("Search criteria validation failed", errors);
         }
     }

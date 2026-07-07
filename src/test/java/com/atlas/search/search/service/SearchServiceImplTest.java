@@ -65,7 +65,6 @@ class SearchServiceImplTest {
     Clock clock = Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
     searchService = new SearchServiceImpl(
         flightProjectionRepository,
-        hotelRoomTypeRepository,
         hotelSearchCustomRepository,
         availabilityProjectionRepository,
         clock
