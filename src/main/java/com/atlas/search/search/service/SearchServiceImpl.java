@@ -1,10 +1,8 @@
 package com.atlas.search.search.service;
 
 
-import com.atlas.search.projection.entity.AvailabilityProjection;
+import com.atlas.search.config.HotelSearchProperties;
 import com.atlas.search.projection.entity.FlightProjection;
-import com.atlas.search.projection.entity.ResourceType;
-import com.atlas.search.projection.repository.AvailabilityProjectionRepository;
 import com.atlas.search.projection.repository.FlightProjectionRepository;
 import com.atlas.search.projection.repository.FlightSpecification;
 import com.atlas.search.projection.repository.HotelSearchCustomRepository;
@@ -23,7 +21,7 @@ import com.atlas.search.search.exception.SearchValidationException;
 import com.atlas.search.shared.exception.FieldErrorDetail;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,9 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Search service — live reads of index projections (read_model.md).
@@ -51,7 +49,7 @@ public class SearchServiceImpl implements SearchService {
 
     private final FlightProjectionRepository flightProjectionRepository;
     private final HotelSearchCustomRepository hotelSearchCustomRepository;
-    private final AvailabilityProjectionRepository availabilityProjectionRepository;
+    private final HotelSearchProperties hotelSearchProperties;
     private final Clock clock;
 
     @Override
@@ -70,23 +68,9 @@ public class SearchServiceImpl implements SearchService {
 
         Page<FlightProjection> page = flightProjectionRepository.findAll(spec, pageable);
 
-        List<UUID> ids = page.getContent().stream()
-            .map(FlightProjection::getId)
-            .toList();
-
-        Map<UUID, Integer> availabilityMap =
-            availabilityProjectionRepository.findAllByResourceTypeAndResourceIdIn(ResourceType.FLIGHT, ids)
-                .stream()
-                .collect(Collectors.toMap(
-                    AvailabilityProjection::getResourceId,
-                    AvailabilityProjection::getAvailable
-                ));
-
+        // Availability is folded into FlightProjection (ADR-0009): available = capacity − reserved.
         List<FlightOffer> offers = page.getContent().stream()
-            .map(flightProjection -> toFlightOffer(
-                flightProjection,
-                availabilityMap.getOrDefault(flightProjection.getId(), 0)
-            ))
+            .map(flightProjection -> toFlightOffer(flightProjection, flightProjection.getAvailable()))
             .toList();
 
         log.info("SearchFlights - flights found = {}", page.getTotalElements());
@@ -201,6 +185,15 @@ public class SearchServiceImpl implements SearchService {
         if (criteria.getCheckIn() != null && criteria.getCheckOut() != null
                 && !criteria.getCheckOut().isAfter(criteria.getCheckIn())) {
             errors.add(new FieldErrorDetail("checkOut", "checkOut must be after checkIn"));
+        }
+        if (criteria.getCheckIn() != null && criteria.getCheckOut() != null
+                && criteria.getCheckOut().isAfter(criteria.getCheckIn())) {
+            long nights = ChronoUnit.DAYS.between(criteria.getCheckIn(), criteria.getCheckOut());
+            if (nights > hotelSearchProperties.maxStayNights()) {
+                errors.add(new FieldErrorDetail("checkOut",
+                        "stay length (" + nights + " nights) exceeds the maximum of "
+                                + hotelSearchProperties.maxStayNights()));
+            }
         }
 
         if (criteria.getMinPrice() != null && criteria.getMaxPrice() != null

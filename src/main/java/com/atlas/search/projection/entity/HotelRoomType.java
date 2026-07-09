@@ -37,7 +37,7 @@ import java.util.UUID;
 public class HotelRoomType {
 
     @Id
-    @Column(name = "id", nullable = false, unique = true, updatable = false)
+    @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)

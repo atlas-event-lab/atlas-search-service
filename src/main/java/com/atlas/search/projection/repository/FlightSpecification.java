@@ -1,14 +1,10 @@
 package com.atlas.search.projection.repository;
 
-import com.atlas.search.projection.entity.AvailabilityProjection;
 import com.atlas.search.projection.entity.FlightProjection;
 import com.atlas.search.projection.entity.ProjectionStatus;
-import com.atlas.search.projection.entity.ResourceType;
 import com.atlas.search.search.dto.FlightSearchRequest;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
-import jakarta.persistence.criteria.Subquery;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -61,24 +57,9 @@ public class FlightSpecification {
         ));
       }
 
-      //  AVAILABILITY FILTER (SUBQUERY)
-      Subquery<Integer> subquery = query.subquery(Integer.class);
-      Root<AvailabilityProjection> availRoot = subquery.from(AvailabilityProjection.class);
-
-      Expression<Integer> availableExpr = cb.diff(
-          availRoot.get("capacity"),
-          availRoot.get("reserved")
-      );
-
-      subquery.select(availableExpr)
-          .where(
-              cb.equal(availRoot.get("resourceId"), root.get("id")),
-              cb.equal(availRoot.get("resourceType"), ResourceType.FLIGHT),
-              cb.equal(availRoot.get("status"), AvailabilityProjection.AvailabilityStatus.ACTIVE)
-          );
-
-      // available >= paxRequired
-      predicates.add(cb.greaterThanOrEqualTo(subquery, paxRequiringSeat));
+      //  AVAILABILITY FILTER — folded into FlightProjection (ADR-0009): available = capacity − reserved.
+      Expression<Integer> availableExpr = cb.diff(root.get("capacity"), root.get("reserved"));
+      predicates.add(cb.greaterThanOrEqualTo(availableExpr, paxRequiringSeat));
 
       return cb.and(predicates.toArray(new Predicate[0]));
     };

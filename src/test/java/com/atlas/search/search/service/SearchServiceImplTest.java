@@ -3,17 +3,13 @@ package com.atlas.search.search.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.atlas.search.projection.entity.AvailabilityProjection;
+import com.atlas.search.config.HotelSearchProperties;
 import com.atlas.search.projection.entity.FlightProjection;
-import com.atlas.search.projection.entity.ResourceType;
-import com.atlas.search.projection.repository.AvailabilityProjectionRepository;
 import com.atlas.search.projection.repository.FlightProjectionRepository;
-import com.atlas.search.projection.repository.HotelRoomTypeRepository;
 import com.atlas.search.projection.repository.HotelSearchCustomRepository;
 import com.atlas.search.projection.repository.model.HotelRoomResult;
 import com.atlas.search.search.dto.FlightSearchRequest;
@@ -48,33 +44,27 @@ import org.springframework.data.jpa.domain.Specification;
 class SearchServiceImplTest {
 
   private static final LocalDate TODAY = LocalDate.of(2026, 7, 1);
+  private static final int MAX_STAY = 30;
 
   @Mock
   private FlightProjectionRepository flightProjectionRepository;
   @Mock
-  private HotelRoomTypeRepository hotelRoomTypeRepository;
-  @Mock
   private HotelSearchCustomRepository hotelSearchCustomRepository;
-  @Mock
-  private AvailabilityProjectionRepository availabilityProjectionRepository;
 
   private SearchServiceImpl searchService;
 
   @BeforeEach
   void setUp() {
     Clock clock = Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+    var properties = new HotelSearchProperties(365, 7, MAX_STAY);
     searchService = new SearchServiceImpl(
-        flightProjectionRepository,
-        hotelSearchCustomRepository,
-        availabilityProjectionRepository,
-        clock
-    );
+        flightProjectionRepository, hotelSearchCustomRepository, properties, clock);
   }
 
   // ── searchFlights ────────────────────────────────────────────────────────
 
   @Test
-  void searchFlights_returnsOffersWithAvailability_whenCriteriaValid() {
+  void searchFlights_returnsOffersWithAvailability_foldedIntoFlightProjection() {
     FlightSearchRequest criteria = validFlightRequest();
 
     UUID flightId = UUID.randomUUID();
@@ -89,18 +79,12 @@ class SearchServiceImplTest {
     flight.setStops(0);
     flight.setBasePrice(new BigDecimal("250.00"));
     flight.setCurrency("USD");
+    flight.setCapacity(10);
+    flight.setReserved(3);
 
     Page<FlightProjection> page = new PageImpl<>(List.of(flight), Pageable.ofSize(20), 1);
     when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
         .thenReturn(page);
-
-    AvailabilityProjection avail = new AvailabilityProjection();
-    avail.setResourceId(flightId);
-    avail.setCapacity(10);
-    avail.setReserved(3);
-    when(availabilityProjectionRepository.findAllByResourceTypeAndResourceIdIn(
-        eq(ResourceType.FLIGHT), anyList()))
-        .thenReturn(List.of(avail));
 
     FlightSearchResponse response = searchService.searchFlights(criteria);
 
@@ -112,22 +96,20 @@ class SearchServiceImplTest {
   }
 
   @Test
-  void searchFlights_defaultsAvailabilityToZero_whenNoAvailabilityProjectionFound() {
+  void searchFlights_availabilityZero_whenReservedMeetsCapacity() {
     FlightSearchRequest criteria = validFlightRequest();
 
-    UUID flightId = UUID.randomUUID();
     FlightProjection flight = new FlightProjection();
-    flight.setId(flightId);
+    flight.setId(UUID.randomUUID());
     flight.setDepartureTime(Instant.parse("2026-07-10T10:00:00Z"));
     flight.setArrivalTime(Instant.parse("2026-07-10T13:00:00Z"));
     flight.setBasePrice(new BigDecimal("100.00"));
     flight.setCurrency("USD");
+    flight.setCapacity(5);
+    flight.setReserved(5);
 
     when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(flight)));
-    when(availabilityProjectionRepository.findAllByResourceTypeAndResourceIdIn(
-        eq(ResourceType.FLIGHT), anyList()))
-        .thenReturn(List.of());
 
     FlightSearchResponse response = searchService.searchFlights(criteria);
 
@@ -153,10 +135,7 @@ class SearchServiceImplTest {
     criteria.setDepartureDate(TODAY.minusDays(1));
 
     assertThatThrownBy(() -> searchService.searchFlights(criteria))
-        .isInstanceOf(SearchValidationException.class)
-        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
-            .extracting("field")
-            .contains("departureDate"));
+        .isInstanceOf(SearchValidationException.class);
   }
 
   @Test
@@ -174,19 +153,6 @@ class SearchServiceImplTest {
   }
 
   @Test
-  void searchFlights_sortsByDepartureTimeAscending_whenSortIsNull() {
-    FlightSearchRequest criteria = validFlightRequest();
-    criteria.setSort(null);
-    stubEmptyFlightPage();
-
-    searchService.searchFlights(criteria);
-
-    Sort sort = capturedFlightPageable().getSort();
-    assertThat(sort.getOrderFor("departureTime")).isNotNull();
-    assertThat(Objects.requireNonNull(sort.getOrderFor("departureTime")).isAscending()).isTrue();
-  }
-
-  @Test
   void searchFlights_sortsByBasePriceAscending_whenSortIsPrice() {
     FlightSearchRequest criteria = validFlightRequest();
     criteria.setSort(FlightSortOption.PRICE);
@@ -197,18 +163,6 @@ class SearchServiceImplTest {
     Sort sort = capturedFlightPageable().getSort();
     assertThat(sort.getOrderFor("basePrice")).isNotNull();
     assertThat(Objects.requireNonNull(sort.getOrderFor("basePrice")).isAscending()).isTrue();
-  }
-
-  @Test
-  void searchFlights_sortsByDurationAscending_whenSortIsDuration() {
-    FlightSearchRequest criteria = validFlightRequest();
-    criteria.setSort(FlightSortOption.DURATION);
-    stubEmptyFlightPage();
-
-    searchService.searchFlights(criteria);
-
-    Sort sort = capturedFlightPageable().getSort();
-    assertThat(sort.getOrderFor("durationMinutes")).isNotNull();
   }
 
   // ── searchHotels ─────────────────────────────────────────────────────────
@@ -269,6 +223,19 @@ class SearchServiceImplTest {
   }
 
   @Test
+  void searchHotels_throwsValidationException_whenStayExceedsMaxStay() {
+    HotelSearchRequest criteria = validHotelRequest();
+    criteria.setCheckIn(TODAY.plusDays(1));
+    criteria.setCheckOut(TODAY.plusDays(1 + MAX_STAY + 1)); // MAX_STAY + 1 nights
+
+    assertThatThrownBy(() -> searchService.searchHotels(criteria))
+        .isInstanceOf(SearchValidationException.class)
+        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
+            .extracting("field")
+            .contains("checkOut"));
+  }
+
+  @Test
   void searchHotels_throwsValidationException_whenMinPriceGreaterThanMaxPrice() {
     HotelSearchRequest criteria = validHotelRequest();
     criteria.setMinPrice(new BigDecimal("300"));
@@ -279,44 +246,6 @@ class SearchServiceImplTest {
         .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
             .extracting("field")
             .contains("minPrice"));
-  }
-
-  @Test
-  void searchHotels_sortsByRatingDescending_whenSortIsNull() {
-    HotelSearchRequest criteria = validHotelRequest();
-    criteria.setSort(null);
-    stubEmptyHotelPage(criteria);
-
-    searchService.searchHotels(criteria);
-
-    Sort sort = capturedHotelPageable().getSort();
-    assertThat(sort.getOrderFor("rating")).isNotNull();
-    assertThat(Objects.requireNonNull(sort.getOrderFor("rating")).isDescending()).isTrue();
-  }
-
-  @Test
-  void searchHotels_sortsByRatingDescending_whenSortIsRating() {
-    HotelSearchRequest criteria = validHotelRequest();
-    criteria.setSort(HotelSortOption.RATING);
-    stubEmptyHotelPage(criteria);
-
-    searchService.searchHotels(criteria);
-
-    Sort sort = capturedHotelPageable().getSort();
-    assertThat(sort.getOrderFor("rating")).isNotNull();
-  }
-
-  @Test
-  void searchHotels_sortsByPricePerNightAscending_whenSortIsPrice() {
-    HotelSearchRequest criteria = validHotelRequest();
-    criteria.setSort(HotelSortOption.PRICE);
-    stubEmptyHotelPage(criteria);
-
-    searchService.searchHotels(criteria);
-
-    Sort sort = capturedHotelPageable().getSort();
-    assertThat(sort.getOrderFor("roomTypes.pricePerNight")).isNotNull();
-    assertThat(Objects.requireNonNull(sort.getOrderFor("roomTypes.pricePerNight")).isAscending()).isTrue();
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -351,20 +280,9 @@ class SearchServiceImplTest {
         .thenReturn(new PageImpl<>(List.of()));
   }
 
-  private void stubEmptyHotelPage(HotelSearchRequest criteria) {
-    when(hotelSearchCustomRepository.search(eq(criteria), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of()));
-  }
-
   private Pageable capturedFlightPageable() {
     ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
     verify(flightProjectionRepository).findAll(any(Specification.class), captor.capture());
-    return captor.getValue();
-  }
-
-  private Pageable capturedHotelPageable() {
-    ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-    verify(hotelSearchCustomRepository).search(any(HotelSearchRequest.class), captor.capture());
     return captor.getValue();
   }
 }

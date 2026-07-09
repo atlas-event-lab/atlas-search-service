@@ -1,10 +1,9 @@
 package com.atlas.search.projection.messaging;
 
-import com.atlas.search.projection.entity.ResourceType;
 import com.atlas.search.projection.event.EventValidator;
-import com.atlas.search.projection.event.ReservationDeltaPayload;
+import com.atlas.search.projection.event.FlightAvailabilityPayload;
+import com.atlas.search.projection.event.HotelAvailabilityPayload;
 import com.atlas.search.projection.service.ProjectionService;
-import com.atlas.search.shared.messaging.ConsumerEventType;
 import com.atlas.search.projection.event.EventEnvelope;
 import com.atlas.search.shared.messaging.EventTopics;
 import jakarta.validation.ConstraintViolationException;
@@ -16,13 +15,14 @@ import org.springframework.kafka.retrytopic.DltStrategy;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
-
 /**
- * Consumes Inventory resource-facing events to adjust the AvailabilityProjection. Search consumes
- * ONLY the resource-facing family (keyed by reservationId), never the booking-facing saga family
- * (inventory/service.md). Adjustments are commutative counters — safe under at-least-once delivery
- * when deduplicated on {@code eventId} (events.md §Processing rules).
+ * Consumes Inventory resource-facing events to update the availability projections (ADR-0008/ADR-0009).
+ * Search consumes ONLY the resource-facing family (rekeyed by flightId / roomTypeId), never the
+ * booking-facing saga family. Events carry the <b>absolute</b> {@code reserved} value + a monotonic
+ * {@code version}; the consumer applies an update last-writer-wins, only if {@code version ≥} the
+ * stored version. This is idempotent under at-least-once delivery without eventId dedupe.
+ * The reserved / released / expired events of a family share a payload and are applied identically
+ * (the absolute value already reflects the outcome).
  */
 @Slf4j
 @Component
@@ -36,98 +36,79 @@ public class InventoryAvailabilityConsumer {
   private final ProjectionService projectionService;
   private final EventValidator eventValidator;
 
-  // ── Flight availability ───────────────────────────────────────────────────
+  // ── Flight availability (absolute, keyed by flightId) ─────────────────────
 
   @RetryableTopic(attempts = "4",
       backoff = @Backoff(delay = RETRY_DELAY_MS, multiplier = RETRY_MULTIPLIER, maxDelay = RETRY_MAX_DELAY_MS),
-      dltTopicSuffix = ".dlq",
-      dltStrategy = DltStrategy.FAIL_ON_ERROR,
-      autoStartDltHandler = "false",
+      dltTopicSuffix = ".dlq", dltStrategy = DltStrategy.FAIL_ON_ERROR, autoStartDltHandler = "false",
       exclude = {IllegalArgumentException.class, ConstraintViolationException.class})
   @KafkaListener(topics = EventTopics.INVENTORY_FLIGHT_RESERVED, groupId = "${spring.kafka.consumer.group-id}")
-  public void onFlightReserved(EventEnvelope<ReservationDeltaPayload> envelope) {
-    processAvailabilityChange(envelope, ConsumerEventType.INVENTORY_FLIGHT_RESERVED,
-        ResourceType.FLIGHT, true);
+  public void onFlightReserved(EventEnvelope<FlightAvailabilityPayload> envelope) {
+    applyFlight(envelope);
   }
 
   @RetryableTopic(attempts = "4",
       backoff = @Backoff(delay = RETRY_DELAY_MS, multiplier = RETRY_MULTIPLIER, maxDelay = RETRY_MAX_DELAY_MS),
-      dltTopicSuffix = ".dlq",
-      dltStrategy = DltStrategy.FAIL_ON_ERROR,
-      autoStartDltHandler = "false",
+      dltTopicSuffix = ".dlq", dltStrategy = DltStrategy.FAIL_ON_ERROR, autoStartDltHandler = "false",
       exclude = {IllegalArgumentException.class, ConstraintViolationException.class})
   @KafkaListener(topics = EventTopics.INVENTORY_FLIGHT_RELEASED, groupId = "${spring.kafka.consumer.group-id}")
-  public void onFlightReleased(EventEnvelope<ReservationDeltaPayload> envelope) {
-    processAvailabilityChange(envelope, ConsumerEventType.INVENTORY_FLIGHT_RELEASED,
-        ResourceType.FLIGHT, false);
+  public void onFlightReleased(EventEnvelope<FlightAvailabilityPayload> envelope) {
+    applyFlight(envelope);
   }
 
   @RetryableTopic(attempts = "4",
       backoff = @Backoff(delay = RETRY_DELAY_MS, multiplier = RETRY_MULTIPLIER, maxDelay = RETRY_MAX_DELAY_MS),
-      dltTopicSuffix = ".dlq",
-      dltStrategy = DltStrategy.FAIL_ON_ERROR,
-      autoStartDltHandler = "false",
+      dltTopicSuffix = ".dlq", dltStrategy = DltStrategy.FAIL_ON_ERROR, autoStartDltHandler = "false",
       exclude = {IllegalArgumentException.class, ConstraintViolationException.class})
   @KafkaListener(topics = EventTopics.INVENTORY_FLIGHT_EXPIRED, groupId = "${spring.kafka.consumer.group-id}")
-  public void onFlightExpired(EventEnvelope<ReservationDeltaPayload> envelope) {
-    processAvailabilityChange(envelope, ConsumerEventType.INVENTORY_FLIGHT_EXPIRED,
-        ResourceType.FLIGHT, false);
+  public void onFlightExpired(EventEnvelope<FlightAvailabilityPayload> envelope) {
+    applyFlight(envelope);
   }
 
-  // ── Hotel availability ────────────────────────────────────────────────────
+  // ── Hotel availability (per-night absolute, keyed by roomTypeId) ──────────
 
   @RetryableTopic(attempts = "4",
       backoff = @Backoff(delay = RETRY_DELAY_MS, multiplier = RETRY_MULTIPLIER, maxDelay = RETRY_MAX_DELAY_MS),
-      dltTopicSuffix = ".dlq", dltStrategy = DltStrategy.FAIL_ON_ERROR,
-      autoStartDltHandler = "false",
+      dltTopicSuffix = ".dlq", dltStrategy = DltStrategy.FAIL_ON_ERROR, autoStartDltHandler = "false",
       exclude = {IllegalArgumentException.class, ConstraintViolationException.class})
   @KafkaListener(topics = EventTopics.INVENTORY_HOTEL_RESERVED, groupId = "${spring.kafka.consumer.group-id}")
-  public void onHotelReserved(EventEnvelope<ReservationDeltaPayload> envelope) {
-    processAvailabilityChange(envelope, ConsumerEventType.INVENTORY_HOTEL_RESERVED,
-        ResourceType.HOTEL, true);
+  public void onHotelReserved(EventEnvelope<HotelAvailabilityPayload> envelope) {
+    applyHotel(envelope);
   }
 
   @RetryableTopic(attempts = "4",
       backoff = @Backoff(delay = RETRY_DELAY_MS, multiplier = RETRY_MULTIPLIER, maxDelay = RETRY_MAX_DELAY_MS),
-      dltTopicSuffix = ".dlq",
-      dltStrategy = DltStrategy.FAIL_ON_ERROR,
-      autoStartDltHandler = "false",
+      dltTopicSuffix = ".dlq", dltStrategy = DltStrategy.FAIL_ON_ERROR, autoStartDltHandler = "false",
       exclude = {IllegalArgumentException.class, ConstraintViolationException.class})
   @KafkaListener(topics = EventTopics.INVENTORY_HOTEL_RELEASED, groupId = "${spring.kafka.consumer.group-id}")
-  public void onHotelReleased(EventEnvelope<ReservationDeltaPayload> envelope) {
-    processAvailabilityChange(envelope, ConsumerEventType.INVENTORY_HOTEL_RELEASED,
-        ResourceType.HOTEL, false);
+  public void onHotelReleased(EventEnvelope<HotelAvailabilityPayload> envelope) {
+    applyHotel(envelope);
   }
 
   @RetryableTopic(attempts = "4",
       backoff = @Backoff(delay = RETRY_DELAY_MS, multiplier = RETRY_MULTIPLIER, maxDelay = RETRY_MAX_DELAY_MS),
-      dltTopicSuffix = ".dlq",
-      dltStrategy = DltStrategy.FAIL_ON_ERROR,
-      autoStartDltHandler = "false",
+      dltTopicSuffix = ".dlq", dltStrategy = DltStrategy.FAIL_ON_ERROR, autoStartDltHandler = "false",
       exclude = {IllegalArgumentException.class, ConstraintViolationException.class})
   @KafkaListener(topics = EventTopics.INVENTORY_HOTEL_EXPIRED, groupId = "${spring.kafka.consumer.group-id}")
-  public void onHotelExpired(EventEnvelope<ReservationDeltaPayload> envelope) {
-    processAvailabilityChange(envelope, ConsumerEventType.INVENTORY_HOTEL_EXPIRED,
-        ResourceType.HOTEL, false);
+  public void onHotelExpired(EventEnvelope<HotelAvailabilityPayload> envelope) {
+    applyHotel(envelope);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  private void processAvailabilityChange(EventEnvelope<ReservationDeltaPayload> envelope,
-      ConsumerEventType eventType, ResourceType resourceType, boolean increment) {
+  private void applyFlight(EventEnvelope<FlightAvailabilityPayload> envelope) {
     eventValidator.validate(envelope);
-    UUID eventId = envelope.eventId();
-    ReservationDeltaPayload payload = envelope.payload();
-    UUID resourceId = payload.resourceId();
-    int quantity = payload.quantity();
+    FlightAvailabilityPayload payload = envelope.payload();
+    log.info("Received {}: flightId={}, reserved={}, version={}",
+        envelope.eventType(), payload.resourceId(), payload.reserved(), payload.version());
+    projectionService.applyFlightAvailability(payload);
+  }
 
-    log.info("Received {}: eventId={}, resourceType={}, resourceId={}, qty={}",
-        eventType, eventId, resourceType, resourceId, quantity);
-
-    if (increment) {
-      projectionService.incrementReserved(eventId, eventType, resourceType, resourceId, quantity);
-    } else {
-      projectionService.decrementReserved(eventId, eventType, resourceType, resourceId, quantity);
-    }
+  private void applyHotel(EventEnvelope<HotelAvailabilityPayload> envelope) {
+    eventValidator.validate(envelope);
+    HotelAvailabilityPayload payload = envelope.payload();
+    log.info("Received {}: roomTypeId={}, nights={}, version={}",
+        envelope.eventType(), payload.roomTypeId(), payload.nights().size(), payload.version());
+    projectionService.applyHotelAvailability(payload);
   }
 }

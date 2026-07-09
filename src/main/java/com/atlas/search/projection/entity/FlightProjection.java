@@ -65,6 +65,18 @@ public class FlightProjection {
     @Column(name = "currency", nullable = false, length = 3)
     private String currency;
 
+    /** Total seats, from catalog events (ADR-0009 — flight availability is folded in here). */
+    @Column(name = "capacity", nullable = false)
+    private int capacity;
+
+    /** Absolute reserved seats, from inventory flight events (last-writer-wins, guarded by {@link #version}). */
+    @Column(name = "reserved", nullable = false)
+    private int reserved;
+
+    /** Monotonic guard for absolute {@code reserved} updates; apply an incoming update only if its version ≥ this. */
+    @Column(name = "version", nullable = false)
+    private long version;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ProjectionStatus status = ProjectionStatus.ACTIVE;
@@ -76,4 +88,9 @@ public class FlightProjection {
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** Seats still available for reservation, never negative (ADR-0009). */
+    public int getAvailable() {
+        return Math.max(0, capacity - reserved);
+    }
 }

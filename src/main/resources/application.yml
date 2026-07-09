@@ -53,6 +53,17 @@ spring:
         spring.json.value.default.type: com.atlas.search.projection.event.EventEnvelope
         spring.json.use.type.headers: 'false'
 
+atlas:
+  search:
+    hotel:
+      # Per-night hotel availability projection (ADR-0009). horizon-days MUST match Inventory's horizon
+      # so the read model materializes the same window; max-stay-nights bounds the hotel search query.
+      horizon-days: ${SEARCH_HOTEL_HORIZON_DAYS:365}
+      purge-after-days: ${SEARCH_HOTEL_PURGE_AFTER_DAYS:7}
+      max-stay-nights: ${SEARCH_HOTEL_MAX_STAY_NIGHTS:30}
+      roll-interval-ms: ${SEARCH_HOTEL_ROLL_INTERVAL_MS:86400000}
+      roll-initial-delay-ms: ${SEARCH_HOTEL_ROLL_INITIAL_DELAY_MS:60000}
+
 management:
   server:
     port: 9090

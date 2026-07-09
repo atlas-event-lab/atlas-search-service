@@ -1,13 +1,14 @@
 package com.atlas.search.projection.service;
 
-import com.atlas.search.projection.entity.ResourceType;
+import com.atlas.search.projection.event.FlightAvailabilityPayload;
 import com.atlas.search.projection.event.FlightCatalogPayload;
+import com.atlas.search.projection.event.HotelAvailabilityPayload;
 import com.atlas.search.projection.event.HotelCatalogPayload;
 import com.atlas.search.shared.messaging.ConsumerEventType;
 
 import java.util.UUID;
 
-/** Maintains the Search Service index projections from catalog and inventory events. */
+/** Maintains the Search Service index projections from catalog and inventory events (ADR-0009). */
 public interface ProjectionService {
 
     void upsertFlight(UUID eventId, ConsumerEventType eventType, FlightCatalogPayload payload);
@@ -18,9 +19,16 @@ public interface ProjectionService {
 
     void disableHotel(UUID eventId, UUID hotelId);
 
-    void incrementReserved(UUID eventId, ConsumerEventType eventType, ResourceType resourceType,
-                           UUID resourceId, int quantity);
+    /**
+     * Applies an absolute flight availability update: set {@code FlightProjection.reserved} to
+     * {@code payload.reserved} iff {@code payload.version ≥} the stored version (last-writer-wins,
+     * ADR-0008). Idempotent under redelivery.
+     */
+    void applyFlightAvailability(FlightAvailabilityPayload payload);
 
-    void decrementReserved(UUID eventId, ConsumerEventType eventType, ResourceType resourceType,
-                           UUID resourceId, int quantity);
+    /**
+     * Applies an absolute per-night hotel availability update: for each night, set {@code reserved}
+     * to the payload value iff {@code payload.version ≥} the stored version (last-writer-wins).
+     */
+    void applyHotelAvailability(HotelAvailabilityPayload payload);
 }
