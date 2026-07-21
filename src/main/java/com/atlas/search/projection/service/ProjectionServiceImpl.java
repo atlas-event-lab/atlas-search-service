@@ -51,7 +51,9 @@ public class ProjectionServiceImpl implements ProjectionService {
     @Override
     @Transactional
     public void upsertFlight(UUID eventId, ConsumerEventType eventType, FlightCatalogPayload payload) {
-        if (alreadyConsumed(eventId, eventType)) return;
+        if (alreadyConsumed(eventId, eventType)) {
+            return;
+        }
 
         UUID flightId = payload.flightId();
         FlightProjection flight = flightProjectionRepository.findById(flightId).orElseGet(() -> {
@@ -81,7 +83,9 @@ public class ProjectionServiceImpl implements ProjectionService {
     @Override
     @Transactional
     public void disableFlight(UUID eventId, UUID flightId) {
-        if (alreadyConsumed(eventId, ConsumerEventType.FLIGHT_DELETED)) return;
+        if (alreadyConsumed(eventId, ConsumerEventType.FLIGHT_DELETED)) {
+            return;
+        }
 
         flightProjectionRepository.findById(flightId).ifPresent(f -> {
             f.setStatus(ProjectionStatus.WITHDRAWN);
@@ -96,7 +100,9 @@ public class ProjectionServiceImpl implements ProjectionService {
     @Override
     @Transactional
     public void upsertHotel(UUID eventId, ConsumerEventType eventType, HotelCatalogPayload payload) {
-        if (alreadyConsumed(eventId, eventType)) return;
+        if (alreadyConsumed(eventId, eventType)) {
+            return;
+        }
 
         UUID hotelId = payload.hotelId();
         HotelProjection hotel = hotelRoomTypeRepository.findById(hotelId).orElseGet(() -> {
@@ -140,7 +146,9 @@ public class ProjectionServiceImpl implements ProjectionService {
     @Override
     @Transactional
     public void disableHotel(UUID eventId, UUID hotelId) {
-        if (alreadyConsumed(eventId, ConsumerEventType.HOTEL_DELETED)) return;
+        if (alreadyConsumed(eventId, ConsumerEventType.HOTEL_DELETED)) {
+            return;
+        }
 
         hotelRoomTypeRepository.findById(hotelId).ifPresent(hotel -> {
             hotel.setStatus(ProjectionStatus.WITHDRAWN);
@@ -168,7 +176,8 @@ public class ProjectionServiceImpl implements ProjectionService {
                                 flightProjectionRepository.save(flight);
                             } else {
                                 log.info(
-                                        "Dropping stale flight availability: flightId={}, incomingVersion={} < stored={}",
+                                        "Dropping stale flight availability: "
+                                                + "flightId={}, incomingVersion={} < stored={}",
                                         payload.resourceId(),
                                         payload.version(),
                                         flight.getVersion());
@@ -257,7 +266,9 @@ public class ProjectionServiceImpl implements ProjectionService {
     }
 
     private void disableFutureNights(List<UUID> roomTypeIds) {
-        if (roomTypeIds.isEmpty()) return;
+        if (roomTypeIds.isEmpty()) {
+            return;
+        }
         LocalDate today = LocalDate.now(clock);
         for (RoomTypeNightAvailabilityProjection row :
                 roomTypeAvailabilityRepository.findByResourceIdInAndStayDateGreaterThanEqual(roomTypeIds, today)) {

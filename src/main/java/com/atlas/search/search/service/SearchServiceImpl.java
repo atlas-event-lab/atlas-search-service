@@ -114,7 +114,9 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private Sort mapHotelSort(HotelSortOption sort) {
-        if (sort == null) return Sort.by("rating").descending();
+        if (sort == null) {
+            return Sort.by("rating").descending();
+        }
 
         return switch (sort) {
             case PRICE -> Sort.by("roomTypes.pricePerNight").ascending();
@@ -123,7 +125,9 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private Sort mapFlightSort(FlightSortOption sort) {
-        if (sort == null) return Sort.by("departureTime").ascending();
+        if (sort == null) {
+            return Sort.by("departureTime").ascending();
+        }
 
         return switch (sort) {
             case FlightSortOption.PRICE -> Sort.by("basePrice").ascending();
