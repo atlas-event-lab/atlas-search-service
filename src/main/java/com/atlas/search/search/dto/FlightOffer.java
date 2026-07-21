@@ -14,5 +14,4 @@ public record FlightOffer(
         int durationMinutes,
         int stops,
         MoneyDto basePrice,
-        int available
-) {}
+        int available) {}

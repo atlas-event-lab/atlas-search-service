@@ -27,67 +27,67 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(GlobalExceptionHandler.class)
 class SearchControllerTest {
 
-  @Autowired
-  private MockMvc mockMvc;
+    @Autowired
+    private MockMvc mockMvc;
 
-  @MockitoBean
-  private SearchService searchService;
+    @MockitoBean
+    private SearchService searchService;
 
-  @MockitoBean
-  private Tracer trace;
+    @MockitoBean
+    private Tracer trace;
 
-  @Test
-  void searchFlights_returns200WithResults_whenCriteriaValid() throws Exception {
-    when(searchService.searchFlights(any(FlightSearchRequest.class)))
-        .thenReturn(new FlightSearchResponse(0, 20, 0, 0, java.util.List.of()));
+    @Test
+    void searchFlights_returns200WithResults_whenCriteriaValid() throws Exception {
+        when(searchService.searchFlights(any(FlightSearchRequest.class)))
+                .thenReturn(new FlightSearchResponse(0, 20, 0, 0, java.util.List.of()));
 
-    mockMvc.perform(get("/api/v1/search/flights")
-            .param("origin", "JFK")
-            .param("destination", "LAX")
-            .param("departureDate", "2026-08-01")
-            .param("adults", "2"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.page").value(0))
-        .andExpect(jsonPath("$.size").value(20));
+        mockMvc.perform(get("/api/v1/search/flights")
+                        .param("origin", "JFK")
+                        .param("destination", "LAX")
+                        .param("departureDate", "2026-08-01")
+                        .param("adults", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20));
 
-    verify(searchService).searchFlights(any(FlightSearchRequest.class));
-  }
+        verify(searchService).searchFlights(any(FlightSearchRequest.class));
+    }
 
-  @Test
-  void searchFlights_returns400_whenOriginMissing() throws Exception {
-    mockMvc.perform(get("/api/v1/search/flights")
-            .param("destination", "LAX")
-            .param("departureDate", "2026-08-01")
-            .param("adults", "2"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value("https://atlas/errors/validation"));
-  }
+    @Test
+    void searchFlights_returns400_whenOriginMissing() throws Exception {
+        mockMvc.perform(get("/api/v1/search/flights")
+                        .param("destination", "LAX")
+                        .param("departureDate", "2026-08-01")
+                        .param("adults", "2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("https://atlas/errors/validation"));
+    }
 
-  @Test
-  void searchHotels_returns200WithResults_whenCriteriaValid() throws Exception {
-    when(searchService.searchHotels(any(HotelSearchRequest.class)))
-        .thenReturn(new HotelSearchResponse(0, 20, 0L, 0, java.util.List.of()));
+    @Test
+    void searchHotels_returns200WithResults_whenCriteriaValid() throws Exception {
+        when(searchService.searchHotels(any(HotelSearchRequest.class)))
+                .thenReturn(new HotelSearchResponse(0, 20, 0L, 0, java.util.List.of()));
 
-    mockMvc.perform(get("/api/v1/search/hotels")
-            .param("city", "Lima")
-            .param("checkIn", "2026-08-01")
-            .param("checkOut", "2026-08-05")
-            .param("rooms", "1")
-            .param("guests", "2"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.page").value(0));
+        mockMvc.perform(get("/api/v1/search/hotels")
+                        .param("city", "Lima")
+                        .param("checkIn", "2026-08-01")
+                        .param("checkOut", "2026-08-05")
+                        .param("rooms", "1")
+                        .param("guests", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0));
 
-    verify(searchService).searchHotels(any(HotelSearchRequest.class));
-  }
+        verify(searchService).searchHotels(any(HotelSearchRequest.class));
+    }
 
-  @Test
-  void searchHotels_returns400_whenCityMissing() throws Exception {
-    mockMvc.perform(get("/api/v1/search/hotels")
-            .param("checkIn", "2026-08-01")
-            .param("checkOut", "2026-08-05")
-            .param("rooms", "1")
-            .param("guests", "2"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value("https://atlas/errors/validation"));
-  }
+    @Test
+    void searchHotels_returns400_whenCityMissing() throws Exception {
+        mockMvc.perform(get("/api/v1/search/hotels")
+                        .param("checkIn", "2026-08-01")
+                        .param("checkOut", "2026-08-05")
+                        .param("rooms", "1")
+                        .param("guests", "2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("https://atlas/errors/validation"));
+    }
 }

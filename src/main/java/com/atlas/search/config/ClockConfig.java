@@ -1,10 +1,9 @@
 package com.atlas.search.config;
 
+import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.time.Clock;
 
 /**
  * Exposes a {@link Clock} bean so time-sensitive logic (validation, the hotel calendar's "today")

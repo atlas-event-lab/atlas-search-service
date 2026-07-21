@@ -4,12 +4,11 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
 
 /**
  * Query parameters for {@code GET /search/hotels} (search.yaml).
@@ -38,7 +37,8 @@ public class HotelSearchRequest {
     @Min(1)
     private Integer guests;
 
-    @Min(1) @Max(5)
+    @Min(1)
+    @Max(5)
     private Integer hotelRating = 1;
 
     private BigDecimal minPrice;
@@ -49,10 +49,12 @@ public class HotelSearchRequest {
     @Min(0)
     private int page = 0;
 
-    @Min(1) @Max(100)
+    @Min(1)
+    @Max(100)
     private int size = 20;
 
     public enum HotelSortOption {
-        PRICE, RATING
+        PRICE,
+        RATING
     }
 }

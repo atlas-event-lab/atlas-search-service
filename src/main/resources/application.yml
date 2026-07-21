@@ -13,7 +13,7 @@ spring:
     name: search-service
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://129.213.185.23:5432/search_db}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/search_db}
     username: ${DB_USERNAME:atlas}
     password: ${DB_PASSWORD:CAMBIAR_PASSWORD}
     hikari:

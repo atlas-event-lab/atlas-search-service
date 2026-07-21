@@ -13,5 +13,4 @@ public record HotelOffer(
         String roomTypeName,
         int maxOccupancy,
         MoneyDto pricePerNight,
-        int available
-) {}
+        int available) {}

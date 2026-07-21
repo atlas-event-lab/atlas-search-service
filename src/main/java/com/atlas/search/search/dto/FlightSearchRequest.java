@@ -4,13 +4,12 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.Getter;
-import lombok.Setter;
-import org.springframework.format.annotation.DateTimeFormat;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.format.annotation.DateTimeFormat;
 
 /**
  * Query parameters for {@code GET /search/flights} (search.yaml).
@@ -31,7 +30,8 @@ public class FlightSearchRequest {
     private LocalDate departureDate;
 
     @NotNull
-    @Min(1) @Max(9)
+    @Min(1)
+    @Max(9)
     private Integer adults;
 
     @Min(0)
@@ -57,14 +57,20 @@ public class FlightSearchRequest {
     @Min(0)
     private int page = 0;
 
-    @Min(1) @Max(100)
+    @Min(1)
+    @Max(100)
     private int size = 20;
 
     public enum CabinClass {
-        ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST
+        ECONOMY,
+        PREMIUM_ECONOMY,
+        BUSINESS,
+        FIRST
     }
 
     public enum FlightSortOption {
-        PRICE, DEPARTURE_TIME, DURATION
+        PRICE,
+        DEPARTURE_TIME,
+        DURATION
     }
 }

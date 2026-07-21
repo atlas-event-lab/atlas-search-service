@@ -24,99 +24,122 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class CatalogEventConsumerTest {
 
-  @Mock
-  private ProjectionService projectionService;
-  @Mock
-  private EventValidator eventValidator;
+    @Mock
+    private ProjectionService projectionService;
 
-  private CatalogEventConsumer consumer;
+    @Mock
+    private EventValidator eventValidator;
 
-  @BeforeEach
-  void setUp() {
-    consumer = new CatalogEventConsumer(projectionService, eventValidator);
-  }
+    private CatalogEventConsumer consumer;
 
-  @Test
-  void onFlightCreated_validatesEnvelopeAndDelegatesUpsert_withFlightCreatedType() {
-    EventEnvelope<FlightCatalogPayload> envelope = flightEnvelope();
+    @BeforeEach
+    void setUp() {
+        consumer = new CatalogEventConsumer(projectionService, eventValidator);
+    }
 
-    consumer.onFlightCreated(envelope);
+    @Test
+    void onFlightCreated_validatesEnvelopeAndDelegatesUpsert_withFlightCreatedType() {
+        EventEnvelope<FlightCatalogPayload> envelope = flightEnvelope();
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).upsertFlight(
-        envelope.eventId(), ConsumerEventType.FLIGHT_CREATED, envelope.payload());
-  }
+        consumer.onFlightCreated(envelope);
 
-  @Test
-  void onFlightUpdated_validatesEnvelopeAndDelegatesUpsert_withFlightUpdatedType() {
-    EventEnvelope<FlightCatalogPayload> envelope = flightEnvelope();
+        verify(eventValidator).validate(envelope);
+        verify(projectionService)
+                .upsertFlight(envelope.eventId(), ConsumerEventType.FLIGHT_CREATED, envelope.payload());
+    }
 
-    consumer.onFlightUpdated(envelope);
+    @Test
+    void onFlightUpdated_validatesEnvelopeAndDelegatesUpsert_withFlightUpdatedType() {
+        EventEnvelope<FlightCatalogPayload> envelope = flightEnvelope();
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).upsertFlight(
-        envelope.eventId(), ConsumerEventType.FLIGHT_UPDATED, envelope.payload());
-  }
+        consumer.onFlightUpdated(envelope);
 
-  @Test
-  void onFlightDeleted_validatesEnvelopeAndDelegatesDisable() {
-    EventEnvelope<FlightDeletedPayload> envelope = new EventEnvelope<>(
-        UUID.randomUUID(), "FlightDeleted", 1, Instant.now(), null, null, null, "flight-service",
-        new FlightDeletedPayload(UUID.randomUUID()));
+        verify(eventValidator).validate(envelope);
+        verify(projectionService)
+                .upsertFlight(envelope.eventId(), ConsumerEventType.FLIGHT_UPDATED, envelope.payload());
+    }
 
-    consumer.onFlightDeleted(envelope);
+    @Test
+    void onFlightDeleted_validatesEnvelopeAndDelegatesDisable() {
+        EventEnvelope<FlightDeletedPayload> envelope = new EventEnvelope<>(
+                UUID.randomUUID(),
+                "FlightDeleted",
+                1,
+                Instant.now(),
+                null,
+                null,
+                null,
+                "flight-service",
+                new FlightDeletedPayload(UUID.randomUUID()));
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).disableFlight(envelope.eventId(), envelope.payload().flightId());
-  }
+        consumer.onFlightDeleted(envelope);
 
-  @Test
-  void onHotelCreated_validatesEnvelopeAndDelegatesUpsert_withHotelCreatedType() {
-    EventEnvelope<HotelCatalogPayload> envelope = hotelEnvelope();
+        verify(eventValidator).validate(envelope);
+        verify(projectionService)
+                .disableFlight(envelope.eventId(), envelope.payload().flightId());
+    }
 
-    consumer.onHotelCreated(envelope);
+    @Test
+    void onHotelCreated_validatesEnvelopeAndDelegatesUpsert_withHotelCreatedType() {
+        EventEnvelope<HotelCatalogPayload> envelope = hotelEnvelope();
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).upsertHotel(
-        envelope.eventId(), ConsumerEventType.HOTEL_CREATED, envelope.payload());
-  }
+        consumer.onHotelCreated(envelope);
 
-  @Test
-  void onHotelUpdated_validatesEnvelopeAndDelegatesUpsert_withHotelUpdatedType() {
-    EventEnvelope<HotelCatalogPayload> envelope = hotelEnvelope();
+        verify(eventValidator).validate(envelope);
+        verify(projectionService).upsertHotel(envelope.eventId(), ConsumerEventType.HOTEL_CREATED, envelope.payload());
+    }
 
-    consumer.onHotelUpdated(envelope);
+    @Test
+    void onHotelUpdated_validatesEnvelopeAndDelegatesUpsert_withHotelUpdatedType() {
+        EventEnvelope<HotelCatalogPayload> envelope = hotelEnvelope();
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).upsertHotel(
-        envelope.eventId(), ConsumerEventType.HOTEL_UPDATED, envelope.payload());
-  }
+        consumer.onHotelUpdated(envelope);
 
-  @Test
-  void onHotelDeleted_validatesEnvelopeAndDelegatesDisable() {
-    EventEnvelope<HotelDeletedPayload> envelope = new EventEnvelope<>(
-        UUID.randomUUID(), "HotelDeleted", 1, Instant.now(), null, null, null, "hotel-service",
-        new HotelDeletedPayload(UUID.randomUUID()));
+        verify(eventValidator).validate(envelope);
+        verify(projectionService).upsertHotel(envelope.eventId(), ConsumerEventType.HOTEL_UPDATED, envelope.payload());
+    }
 
-    consumer.onHotelDeleted(envelope);
+    @Test
+    void onHotelDeleted_validatesEnvelopeAndDelegatesDisable() {
+        EventEnvelope<HotelDeletedPayload> envelope = new EventEnvelope<>(
+                UUID.randomUUID(),
+                "HotelDeleted",
+                1,
+                Instant.now(),
+                null,
+                null,
+                null,
+                "hotel-service",
+                new HotelDeletedPayload(UUID.randomUUID()));
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).disableHotel(envelope.eventId(), envelope.payload().hotelId());
-  }
+        consumer.onHotelDeleted(envelope);
 
-  private EventEnvelope<FlightCatalogPayload> flightEnvelope() {
-    FlightCatalogPayload payload = new FlightCatalogPayload(
-        UUID.randomUUID(), "FL123", "DL", "Delta", "JFK", "LAX",
-        Instant.parse("2026-07-10T10:00:00Z"), Instant.parse("2026-07-10T13:00:00Z"),
-        150, new MoneyEvent(new BigDecimal("250.00"), "USD"), List.of());
-    return new EventEnvelope<>(UUID.randomUUID(), "FlightCreated", 1, Instant.now(),
-        null, null, null, "flight-service", payload);
-  }
+        verify(eventValidator).validate(envelope);
+        verify(projectionService)
+                .disableHotel(envelope.eventId(), envelope.payload().hotelId());
+    }
 
-  private EventEnvelope<HotelCatalogPayload> hotelEnvelope() {
-    HotelCatalogPayload payload = new HotelCatalogPayload(
-        UUID.randomUUID(), "Grand Hotel", "Lima", "Peru", 4, List.of(), List.of(), List.of());
-    return new EventEnvelope<>(UUID.randomUUID(), "HotelCreated", 1, Instant.now(),
-        null, null, null, "hotel-service", payload);
-  }
+    private EventEnvelope<FlightCatalogPayload> flightEnvelope() {
+        FlightCatalogPayload payload = new FlightCatalogPayload(
+                UUID.randomUUID(),
+                "FL123",
+                "DL",
+                "Delta",
+                "JFK",
+                "LAX",
+                Instant.parse("2026-07-10T10:00:00Z"),
+                Instant.parse("2026-07-10T13:00:00Z"),
+                150,
+                new MoneyEvent(new BigDecimal("250.00"), "USD"),
+                List.of());
+        return new EventEnvelope<>(
+                UUID.randomUUID(), "FlightCreated", 1, Instant.now(), null, null, null, "flight-service", payload);
+    }
+
+    private EventEnvelope<HotelCatalogPayload> hotelEnvelope() {
+        HotelCatalogPayload payload = new HotelCatalogPayload(
+                UUID.randomUUID(), "Grand Hotel", "Lima", "Peru", 4, List.of(), List.of(), List.of());
+        return new EventEnvelope<>(
+                UUID.randomUUID(), "HotelCreated", 1, Instant.now(), null, null, null, "hotel-service", payload);
+    }
 }

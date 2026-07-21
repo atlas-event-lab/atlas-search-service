@@ -2,7 +2,6 @@ package com.atlas.search.projection.event;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -13,16 +12,9 @@ import java.util.UUID;
  * {@code roomTypeId}.
  */
 public record HotelAvailabilityPayload(
-        @NotNull
-        UUID reservationId,
+        @NotNull UUID reservationId,
         UUID bookingId,
-
-        @NotNull
-        UUID roomTypeId,
+        @NotNull UUID roomTypeId,
         UUID hotelId,
-
-        @NotEmpty
-        List<NightAvailability> nights,
-
-        long version
-) {}
+        @NotEmpty List<NightAvailability> nights,
+        long version) {}

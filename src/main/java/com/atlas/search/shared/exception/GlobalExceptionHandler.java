@@ -3,6 +3,8 @@ package com.atlas.search.shared.exception;
 import com.atlas.search.search.exception.SearchValidationException;
 import com.atlas.search.shared.web.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -17,9 +19,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-import java.net.URI;
-import java.util.List;
 
 /**
  * Translates all exceptions into RFC 7807 Problem Details responses (API-005).
@@ -37,8 +36,12 @@ public class GlobalExceptionHandler {
                 .map(e -> new FieldErrorDetail(e.getField(), e.getDefaultMessage()))
                 .toList();
 
-        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Request validation failed",
-                ProblemTypes.VALIDATION, "Validation Error", request);
+        ProblemDetail problem = problem(
+                HttpStatus.BAD_REQUEST,
+                "Request validation failed",
+                ProblemTypes.VALIDATION,
+                "Validation Error",
+                request);
         problem.setProperty("errors", errors);
         return respond(HttpStatus.BAD_REQUEST, problem);
     }
@@ -47,8 +50,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleSearchValidation(
             SearchValidationException ex, HttpServletRequest request) {
 
-        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, ex.getMessage(),
-                ProblemTypes.VALIDATION, "Validation Error", request);
+        ProblemDetail problem =
+                problem(HttpStatus.BAD_REQUEST, ex.getMessage(), ProblemTypes.VALIDATION, "Validation Error", request);
         if (ex.getErrors() != null && !ex.getErrors().isEmpty()) {
             problem.setProperty("errors", ex.getErrors());
         }
@@ -59,9 +62,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleMissingParam(
             MissingServletRequestParameterException ex, HttpServletRequest request) {
 
-        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST,
+        ProblemDetail problem = problem(
+                HttpStatus.BAD_REQUEST,
                 "Required parameter '" + ex.getParameterName() + "' is missing",
-                ProblemTypes.VALIDATION, "Validation Error", request);
+                ProblemTypes.VALIDATION,
+                "Validation Error",
+                request);
         return respond(HttpStatus.BAD_REQUEST, problem);
     }
 
@@ -69,9 +75,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
 
-        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST,
+        ProblemDetail problem = problem(
+                HttpStatus.BAD_REQUEST,
                 "Invalid value for '" + ex.getName() + "'",
-                ProblemTypes.VALIDATION, "Validation Error", request);
+                ProblemTypes.VALIDATION,
+                "Validation Error",
+                request);
         return respond(HttpStatus.BAD_REQUEST, problem);
     }
 
@@ -79,31 +88,33 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleUnreadable(
             HttpMessageNotReadableException ex, HttpServletRequest request) {
 
-        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Malformed request body",
-                ProblemTypes.VALIDATION, "Validation Error", request);
+        ProblemDetail problem = problem(
+                HttpStatus.BAD_REQUEST, "Malformed request body", ProblemTypes.VALIDATION, "Validation Error", request);
         return respond(HttpStatus.BAD_REQUEST, problem);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ProblemDetail> handleNoResource(
-            NoResourceFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ProblemDetail> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
 
-        ProblemDetail problem = problem(HttpStatus.NOT_FOUND, "Resource not found",
-                ProblemTypes.NOT_FOUND, "Not Found", request);
+        ProblemDetail problem =
+                problem(HttpStatus.NOT_FOUND, "Resource not found", ProblemTypes.NOT_FOUND, "Not Found", request);
         return respond(HttpStatus.NOT_FOUND, problem);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error processing request to {}", request.getRequestURI(), ex);
-        ProblemDetail problem = problem(HttpStatus.INTERNAL_SERVER_ERROR,
+        ProblemDetail problem = problem(
+                HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred",
-                ProblemTypes.INTERNAL_ERROR, "Internal Server Error", request);
+                ProblemTypes.INTERNAL_ERROR,
+                "Internal Server Error",
+                request);
         return respond(HttpStatus.INTERNAL_SERVER_ERROR, problem);
     }
 
-    private ProblemDetail problem(HttpStatus status, String detail,
-                                  URI type, String title, HttpServletRequest request) {
+    private ProblemDetail problem(
+            HttpStatus status, String detail, URI type, String title, HttpServletRequest request) {
         ProblemDetail p = ProblemDetail.forStatusAndDetail(status, detail);
         p.setType(type);
         p.setTitle(title);

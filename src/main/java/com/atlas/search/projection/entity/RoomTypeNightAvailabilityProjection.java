@@ -7,16 +7,15 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
 
 /**
  * Per-night hotel availability projection (read_model.md; ADR-0009). One row per
@@ -66,8 +65,14 @@ public class RoomTypeNightAvailabilityProjection {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public RoomTypeNightAvailabilityProjection(UUID id, UUID resourceId, LocalDate stayDate,
-                                               int capacity, int reserved, AvailabilityStatus status, long version) {
+    public RoomTypeNightAvailabilityProjection(
+            UUID id,
+            UUID resourceId,
+            LocalDate stayDate,
+            int capacity,
+            int reserved,
+            AvailabilityStatus status,
+            long version) {
         this.id = id;
         this.resourceId = resourceId;
         this.stayDate = stayDate;

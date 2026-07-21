@@ -16,7 +16,6 @@ import com.atlas.search.search.dto.FlightSearchRequest;
 import com.atlas.search.search.dto.FlightSearchRequest.FlightSortOption;
 import com.atlas.search.search.dto.FlightSearchResponse;
 import com.atlas.search.search.dto.HotelSearchRequest;
-import com.atlas.search.search.dto.HotelSearchRequest.HotelSortOption;
 import com.atlas.search.search.dto.HotelSearchResponse;
 import com.atlas.search.search.dto.HotelSearchResponse.RoomDto;
 import com.atlas.search.search.exception.SearchValidationException;
@@ -43,246 +42,269 @@ import org.springframework.data.jpa.domain.Specification;
 @ExtendWith(MockitoExtension.class)
 class SearchServiceImplTest {
 
-  private static final LocalDate TODAY = LocalDate.of(2026, 7, 1);
-  private static final int MAX_STAY = 30;
+    private static final LocalDate TODAY = LocalDate.of(2026, 7, 1);
+    private static final int MAX_STAY = 30;
 
-  @Mock
-  private FlightProjectionRepository flightProjectionRepository;
-  @Mock
-  private HotelSearchCustomRepository hotelSearchCustomRepository;
+    @Mock
+    private FlightProjectionRepository flightProjectionRepository;
 
-  private SearchServiceImpl searchService;
+    @Mock
+    private HotelSearchCustomRepository hotelSearchCustomRepository;
 
-  @BeforeEach
-  void setUp() {
-    Clock clock = Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
-    var properties = new HotelSearchProperties(365, 7, MAX_STAY);
-    searchService = new SearchServiceImpl(
-        flightProjectionRepository, hotelSearchCustomRepository, properties, clock);
-  }
+    private SearchServiceImpl searchService;
 
-  // ── searchFlights ────────────────────────────────────────────────────────
+    @BeforeEach
+    void setUp() {
+        Clock clock = Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+        var properties = new HotelSearchProperties(365, 7, MAX_STAY);
+        searchService =
+                new SearchServiceImpl(flightProjectionRepository, hotelSearchCustomRepository, properties, clock);
+    }
 
-  @Test
-  void searchFlights_returnsOffersWithAvailability_foldedIntoFlightProjection() {
-    FlightSearchRequest criteria = validFlightRequest();
+    // ── searchFlights ────────────────────────────────────────────────────────
 
-    UUID flightId = UUID.randomUUID();
-    FlightProjection flight = new FlightProjection();
-    flight.setId(flightId);
-    flight.setAirline("Delta");
-    flight.setOrigin("JFK");
-    flight.setDestination("LAX");
-    flight.setDepartureTime(Instant.parse("2026-07-10T10:00:00Z"));
-    flight.setArrivalTime(Instant.parse("2026-07-10T13:00:00Z"));
-    flight.setDurationMinutes(180);
-    flight.setStops(0);
-    flight.setBasePrice(new BigDecimal("250.00"));
-    flight.setCurrency("USD");
-    flight.setCapacity(10);
-    flight.setReserved(3);
+    @Test
+    void searchFlights_returnsOffersWithAvailability_foldedIntoFlightProjection() {
+        FlightSearchRequest criteria = validFlightRequest();
 
-    Page<FlightProjection> page = new PageImpl<>(List.of(flight), Pageable.ofSize(20), 1);
-    when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
-        .thenReturn(page);
+        UUID flightId = UUID.randomUUID();
+        FlightProjection flight = new FlightProjection();
+        flight.setId(flightId);
+        flight.setAirline("Delta");
+        flight.setOrigin("JFK");
+        flight.setDestination("LAX");
+        flight.setDepartureTime(Instant.parse("2026-07-10T10:00:00Z"));
+        flight.setArrivalTime(Instant.parse("2026-07-10T13:00:00Z"));
+        flight.setDurationMinutes(180);
+        flight.setStops(0);
+        flight.setBasePrice(new BigDecimal("250.00"));
+        flight.setCurrency("USD");
+        flight.setCapacity(10);
+        flight.setReserved(3);
 
-    FlightSearchResponse response = searchService.searchFlights(criteria);
+        Page<FlightProjection> page = new PageImpl<>(List.of(flight), Pageable.ofSize(20), 1);
+        when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(page);
 
-    assertThat(response.content()).hasSize(1);
-    assertThat(response.content().getFirst().flightId()).isEqualTo(flightId);
-    assertThat(response.content().getFirst().available()).isEqualTo(7);
-    assertThat(response.content().getFirst().basePrice().amount()).isEqualByComparingTo("250.00");
-    assertThat(response.totalElements()).isEqualTo(1);
-  }
+        FlightSearchResponse response = searchService.searchFlights(criteria);
 
-  @Test
-  void searchFlights_availabilityZero_whenReservedMeetsCapacity() {
-    FlightSearchRequest criteria = validFlightRequest();
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().getFirst().flightId()).isEqualTo(flightId);
+        assertThat(response.content().getFirst().available()).isEqualTo(7);
+        assertThat(response.content().getFirst().basePrice().amount()).isEqualByComparingTo("250.00");
+        assertThat(response.totalElements()).isEqualTo(1);
+    }
 
-    FlightProjection flight = new FlightProjection();
-    flight.setId(UUID.randomUUID());
-    flight.setDepartureTime(Instant.parse("2026-07-10T10:00:00Z"));
-    flight.setArrivalTime(Instant.parse("2026-07-10T13:00:00Z"));
-    flight.setBasePrice(new BigDecimal("100.00"));
-    flight.setCurrency("USD");
-    flight.setCapacity(5);
-    flight.setReserved(5);
+    @Test
+    void searchFlights_availabilityZero_whenReservedMeetsCapacity() {
+        FlightSearchRequest criteria = validFlightRequest();
 
-    when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(flight)));
+        FlightProjection flight = new FlightProjection();
+        flight.setId(UUID.randomUUID());
+        flight.setDepartureTime(Instant.parse("2026-07-10T10:00:00Z"));
+        flight.setArrivalTime(Instant.parse("2026-07-10T13:00:00Z"));
+        flight.setBasePrice(new BigDecimal("100.00"));
+        flight.setCurrency("USD");
+        flight.setCapacity(5);
+        flight.setReserved(5);
 
-    FlightSearchResponse response = searchService.searchFlights(criteria);
+        when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(flight)));
 
-    assertThat(response.content().getFirst().available()).isZero();
-  }
+        FlightSearchResponse response = searchService.searchFlights(criteria);
 
-  @Test
-  void searchFlights_throwsValidationException_whenOriginEqualsDestination() {
-    FlightSearchRequest criteria = validFlightRequest();
-    criteria.setOrigin("JFK");
-    criteria.setDestination("jfk");
+        assertThat(response.content().getFirst().available()).isZero();
+    }
 
-    assertThatThrownBy(() -> searchService.searchFlights(criteria))
-        .isInstanceOf(SearchValidationException.class)
-        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
-            .extracting("field")
-            .contains("destination"));
-  }
+    @Test
+    void searchFlights_throwsValidationException_whenOriginEqualsDestination() {
+        FlightSearchRequest criteria = validFlightRequest();
+        criteria.setOrigin("JFK");
+        criteria.setDestination("jfk");
 
-  @Test
-  void searchFlights_throwsValidationException_whenDepartureDateInPast() {
-    FlightSearchRequest criteria = validFlightRequest();
-    criteria.setDepartureDate(TODAY.minusDays(1));
+        assertThatThrownBy(() -> searchService.searchFlights(criteria))
+                .isInstanceOf(SearchValidationException.class)
+                .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
+                        .extracting("field")
+                        .contains("destination"));
+    }
 
-    assertThatThrownBy(() -> searchService.searchFlights(criteria))
-        .isInstanceOf(SearchValidationException.class);
-  }
+    @Test
+    void searchFlights_throwsValidationException_whenDepartureDateInPast() {
+        FlightSearchRequest criteria = validFlightRequest();
+        criteria.setDepartureDate(TODAY.minusDays(1));
 
-  @Test
-  void searchFlights_throwsValidationException_whenTotalPassengersExceedsNine() {
-    FlightSearchRequest criteria = validFlightRequest();
-    criteria.setAdults(5);
-    criteria.setChildren(3);
-    criteria.setInfants(2);
+        assertThatThrownBy(() -> searchService.searchFlights(criteria)).isInstanceOf(SearchValidationException.class);
+    }
 
-    assertThatThrownBy(() -> searchService.searchFlights(criteria))
-        .isInstanceOf(SearchValidationException.class)
-        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
-            .extracting("field")
-            .contains("adults"));
-  }
+    @Test
+    void searchFlights_throwsValidationException_whenTotalPassengersExceedsNine() {
+        FlightSearchRequest criteria = validFlightRequest();
+        criteria.setAdults(5);
+        criteria.setChildren(3);
+        criteria.setInfants(2);
 
-  @Test
-  void searchFlights_sortsByBasePriceAscending_whenSortIsPrice() {
-    FlightSearchRequest criteria = validFlightRequest();
-    criteria.setSort(FlightSortOption.PRICE);
-    stubEmptyFlightPage();
+        assertThatThrownBy(() -> searchService.searchFlights(criteria))
+                .isInstanceOf(SearchValidationException.class)
+                .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
+                        .extracting("field")
+                        .contains("adults"));
+    }
 
-    searchService.searchFlights(criteria);
+    @Test
+    void searchFlights_sortsByBasePriceAscending_whenSortIsPrice() {
+        FlightSearchRequest criteria = validFlightRequest();
+        criteria.setSort(FlightSortOption.PRICE);
+        stubEmptyFlightPage();
 
-    Sort sort = capturedFlightPageable().getSort();
-    assertThat(sort.getOrderFor("basePrice")).isNotNull();
-    assertThat(Objects.requireNonNull(sort.getOrderFor("basePrice")).isAscending()).isTrue();
-  }
+        searchService.searchFlights(criteria);
 
-  // ── searchHotels ─────────────────────────────────────────────────────────
+        Sort sort = capturedFlightPageable().getSort();
+        assertThat(sort.getOrderFor("basePrice")).isNotNull();
+        assertThat(Objects.requireNonNull(sort.getOrderFor("basePrice")).isAscending())
+                .isTrue();
+    }
 
-  @Test
-  void searchHotels_groupsRoomsByHotel_whenMultipleRoomsSameHotel() {
-    HotelSearchRequest criteria = validHotelRequest();
+    // ── searchHotels ─────────────────────────────────────────────────────────
 
-    UUID hotelId = UUID.randomUUID();
-    UUID room1 = UUID.randomUUID();
-    UUID room2 = UUID.randomUUID();
+    @Test
+    void searchHotels_groupsRoomsByHotel_whenMultipleRoomsSameHotel() {
+        HotelSearchRequest criteria = validHotelRequest();
 
-    HotelRoomResult result1 = new HotelRoomResult(
-        hotelId, "Grand Hotel", "Lima", "Peru", 4,
-        room1, "Deluxe", 2, new BigDecimal("100.00"), "USD", 3,
-        List.of("wifi"), List.of(), List.of());
-    HotelRoomResult result2 = new HotelRoomResult(
-        hotelId, "Grand Hotel", "Lima", "Peru", 4,
-        room2, "Suite", 4, new BigDecimal("200.00"), "USD", 1,
-        List.of("wifi"), List.of(), List.of());
+        UUID hotelId = UUID.randomUUID();
+        UUID room1 = UUID.randomUUID();
+        UUID room2 = UUID.randomUUID();
 
-    when(hotelSearchCustomRepository.search(eq(criteria), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of(result1, result2)));
+        HotelRoomResult result1 = new HotelRoomResult(
+                hotelId,
+                "Grand Hotel",
+                "Lima",
+                "Peru",
+                4,
+                room1,
+                "Deluxe",
+                2,
+                new BigDecimal("100.00"),
+                "USD",
+                3,
+                List.of("wifi"),
+                List.of(),
+                List.of());
+        HotelRoomResult result2 = new HotelRoomResult(
+                hotelId,
+                "Grand Hotel",
+                "Lima",
+                "Peru",
+                4,
+                room2,
+                "Suite",
+                4,
+                new BigDecimal("200.00"),
+                "USD",
+                1,
+                List.of("wifi"),
+                List.of(),
+                List.of());
 
-    HotelSearchResponse response = searchService.searchHotels(criteria);
+        when(hotelSearchCustomRepository.search(eq(criteria), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(result1, result2)));
 
-    assertThat(response.content()).hasSize(1);
-    assertThat(response.content().getFirst().id()).isEqualTo(hotelId);
-    assertThat(response.content().getFirst().rooms()).hasSize(2);
-    assertThat(response.content().getFirst().rooms())
-        .extracting(RoomDto::roomTypeId)
-        .containsExactlyInAnyOrder(room1, room2);
-  }
+        HotelSearchResponse response = searchService.searchHotels(criteria);
 
-  @Test
-  void searchHotels_throwsValidationException_whenCheckInInPast() {
-    HotelSearchRequest criteria = validHotelRequest();
-    criteria.setCheckIn(TODAY.minusDays(1));
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().getFirst().id()).isEqualTo(hotelId);
+        assertThat(response.content().getFirst().rooms()).hasSize(2);
+        assertThat(response.content().getFirst().rooms())
+                .extracting(RoomDto::roomTypeId)
+                .containsExactlyInAnyOrder(room1, room2);
+    }
 
-    assertThatThrownBy(() -> searchService.searchHotels(criteria))
-        .isInstanceOf(SearchValidationException.class)
-        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
-            .extracting("field")
-            .contains("checkIn"));
-  }
+    @Test
+    void searchHotels_throwsValidationException_whenCheckInInPast() {
+        HotelSearchRequest criteria = validHotelRequest();
+        criteria.setCheckIn(TODAY.minusDays(1));
 
-  @Test
-  void searchHotels_throwsValidationException_whenCheckOutNotAfterCheckIn() {
-    HotelSearchRequest criteria = validHotelRequest();
-    criteria.setCheckIn(TODAY.plusDays(5));
-    criteria.setCheckOut(TODAY.plusDays(5));
+        assertThatThrownBy(() -> searchService.searchHotels(criteria))
+                .isInstanceOf(SearchValidationException.class)
+                .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
+                        .extracting("field")
+                        .contains("checkIn"));
+    }
 
-    assertThatThrownBy(() -> searchService.searchHotels(criteria))
-        .isInstanceOf(SearchValidationException.class)
-        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
-            .extracting("field")
-            .contains("checkOut"));
-  }
+    @Test
+    void searchHotels_throwsValidationException_whenCheckOutNotAfterCheckIn() {
+        HotelSearchRequest criteria = validHotelRequest();
+        criteria.setCheckIn(TODAY.plusDays(5));
+        criteria.setCheckOut(TODAY.plusDays(5));
 
-  @Test
-  void searchHotels_throwsValidationException_whenStayExceedsMaxStay() {
-    HotelSearchRequest criteria = validHotelRequest();
-    criteria.setCheckIn(TODAY.plusDays(1));
-    criteria.setCheckOut(TODAY.plusDays(1 + MAX_STAY + 1)); // MAX_STAY + 1 nights
+        assertThatThrownBy(() -> searchService.searchHotels(criteria))
+                .isInstanceOf(SearchValidationException.class)
+                .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
+                        .extracting("field")
+                        .contains("checkOut"));
+    }
 
-    assertThatThrownBy(() -> searchService.searchHotels(criteria))
-        .isInstanceOf(SearchValidationException.class)
-        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
-            .extracting("field")
-            .contains("checkOut"));
-  }
+    @Test
+    void searchHotels_throwsValidationException_whenStayExceedsMaxStay() {
+        HotelSearchRequest criteria = validHotelRequest();
+        criteria.setCheckIn(TODAY.plusDays(1));
+        criteria.setCheckOut(TODAY.plusDays(1 + MAX_STAY + 1)); // MAX_STAY + 1 nights
 
-  @Test
-  void searchHotels_throwsValidationException_whenMinPriceGreaterThanMaxPrice() {
-    HotelSearchRequest criteria = validHotelRequest();
-    criteria.setMinPrice(new BigDecimal("300"));
-    criteria.setMaxPrice(new BigDecimal("100"));
+        assertThatThrownBy(() -> searchService.searchHotels(criteria))
+                .isInstanceOf(SearchValidationException.class)
+                .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
+                        .extracting("field")
+                        .contains("checkOut"));
+    }
 
-    assertThatThrownBy(() -> searchService.searchHotels(criteria))
-        .isInstanceOf(SearchValidationException.class)
-        .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
-            .extracting("field")
-            .contains("minPrice"));
-  }
+    @Test
+    void searchHotels_throwsValidationException_whenMinPriceGreaterThanMaxPrice() {
+        HotelSearchRequest criteria = validHotelRequest();
+        criteria.setMinPrice(new BigDecimal("300"));
+        criteria.setMaxPrice(new BigDecimal("100"));
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+        assertThatThrownBy(() -> searchService.searchHotels(criteria))
+                .isInstanceOf(SearchValidationException.class)
+                .satisfies(ex -> assertThat(((SearchValidationException) ex).getErrors())
+                        .extracting("field")
+                        .contains("minPrice"));
+    }
 
-  private FlightSearchRequest validFlightRequest() {
-    FlightSearchRequest request = new FlightSearchRequest();
-    request.setOrigin("JFK");
-    request.setDestination("LAX");
-    request.setDepartureDate(TODAY.plusDays(10));
-    request.setAdults(2);
-    request.setChildren(0);
-    request.setInfants(0);
-    request.setPage(0);
-    request.setSize(20);
-    return request;
-  }
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
-  private HotelSearchRequest validHotelRequest() {
-    HotelSearchRequest request = new HotelSearchRequest();
-    request.setCity("Lima");
-    request.setCheckIn(TODAY.plusDays(5));
-    request.setCheckOut(TODAY.plusDays(8));
-    request.setRooms(1);
-    request.setGuests(2);
-    request.setPage(0);
-    request.setSize(20);
-    return request;
-  }
+    private FlightSearchRequest validFlightRequest() {
+        FlightSearchRequest request = new FlightSearchRequest();
+        request.setOrigin("JFK");
+        request.setDestination("LAX");
+        request.setDepartureDate(TODAY.plusDays(10));
+        request.setAdults(2);
+        request.setChildren(0);
+        request.setInfants(0);
+        request.setPage(0);
+        request.setSize(20);
+        return request;
+    }
 
-  private void stubEmptyFlightPage() {
-    when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
-        .thenReturn(new PageImpl<>(List.of()));
-  }
+    private HotelSearchRequest validHotelRequest() {
+        HotelSearchRequest request = new HotelSearchRequest();
+        request.setCity("Lima");
+        request.setCheckIn(TODAY.plusDays(5));
+        request.setCheckOut(TODAY.plusDays(8));
+        request.setRooms(1);
+        request.setGuests(2);
+        request.setPage(0);
+        request.setSize(20);
+        return request;
+    }
 
-  private Pageable capturedFlightPageable() {
-    ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-    verify(flightProjectionRepository).findAll(any(Specification.class), captor.capture());
-    return captor.getValue();
-  }
+    private void stubEmptyFlightPage() {
+        when(flightProjectionRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+    }
+
+    private Pageable capturedFlightPageable() {
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(flightProjectionRepository).findAll(any(Specification.class), captor.capture());
+        return captor.getValue();
+    }
 }

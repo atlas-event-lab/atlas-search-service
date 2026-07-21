@@ -12,5 +12,4 @@ public class KafkaConfig {
     public RecordMessageConverter jsonConverter() {
         return new StringJsonMessageConverter();
     }
-
 }

@@ -11,5 +11,4 @@ public record FlightSegmentEvent(
         String originAirportCode,
         String destinationAirportCode,
         Instant departureTime,
-        Instant arrivalTime
-) {}
+        Instant arrivalTime) {}

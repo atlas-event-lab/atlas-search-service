@@ -19,12 +19,6 @@ import com.atlas.search.projection.repository.FlightProjectionRepository;
 import com.atlas.search.projection.repository.HotelRoomTypeRepository;
 import com.atlas.search.projection.repository.RoomTypeNightAvailabilityProjectionRepository;
 import com.atlas.search.shared.messaging.ConsumerEventType;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,6 +28,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -71,7 +70,7 @@ public class ProjectionServiceImpl implements ProjectionService {
         flight.setDurationMinutes(computeDuration(flight.getDepartureTime(), flight.getArrivalTime()));
         flight.setBasePrice(payload.basePrice().amount());
         flight.setCurrency(payload.basePrice().currency());
-        flight.setCapacity(payload.totalSeats());   // reserved/version preserved (inventory-owned)
+        flight.setCapacity(payload.totalSeats()); // reserved/version preserved (inventory-owned)
         flight.setStatus(ProjectionStatus.ACTIVE);
         flightProjectionRepository.save(flight);
 
@@ -107,8 +106,8 @@ public class ProjectionServiceImpl implements ProjectionService {
         });
 
         // Room types present before this event — used to reconcile removals.
-        Set<UUID> previousRoomTypeIds = hotel.getRoomTypes().stream()
-                .map(HotelRoomType::getId).collect(Collectors.toSet());
+        Set<UUID> previousRoomTypeIds =
+                hotel.getRoomTypes().stream().map(HotelRoomType::getId).collect(Collectors.toSet());
 
         hotel.setName(payload.name());
         hotel.setCity(payload.city());
@@ -146,7 +145,8 @@ public class ProjectionServiceImpl implements ProjectionService {
         hotelRoomTypeRepository.findById(hotelId).ifPresent(hotel -> {
             hotel.setStatus(ProjectionStatus.WITHDRAWN);
             hotelRoomTypeRepository.save(hotel);
-            List<UUID> roomTypeIds = hotel.getRoomTypes().stream().map(HotelRoomType::getId).toList();
+            List<UUID> roomTypeIds =
+                    hotel.getRoomTypes().stream().map(HotelRoomType::getId).toList();
             disableFutureNights(roomTypeIds);
         });
         markConsumed(eventId, ConsumerEventType.HOTEL_DELETED);
@@ -158,16 +158,25 @@ public class ProjectionServiceImpl implements ProjectionService {
     @Override
     @Transactional
     public void applyFlightAvailability(FlightAvailabilityPayload payload) {
-        flightProjectionRepository.findById(payload.resourceId()).ifPresentOrElse(flight -> {
-            if (payload.version() >= flight.getVersion()) {
-                flight.setReserved(payload.reserved());
-                flight.setVersion(payload.version());
-                flightProjectionRepository.save(flight);
-            } else {
-                log.info("Dropping stale flight availability: flightId={}, incomingVersion={} < stored={}",
-                        payload.resourceId(), payload.version(), flight.getVersion());
-            }
-        }, () -> log.warn("FlightProjection not found for availability update: flightId={}", payload.resourceId()));
+        flightProjectionRepository
+                .findById(payload.resourceId())
+                .ifPresentOrElse(
+                        flight -> {
+                            if (payload.version() >= flight.getVersion()) {
+                                flight.setReserved(payload.reserved());
+                                flight.setVersion(payload.version());
+                                flightProjectionRepository.save(flight);
+                            } else {
+                                log.info(
+                                        "Dropping stale flight availability: flightId={}, incomingVersion={} < stored={}",
+                                        payload.resourceId(),
+                                        payload.version(),
+                                        flight.getVersion());
+                            }
+                        },
+                        () -> log.warn(
+                                "FlightProjection not found for availability update: flightId={}",
+                                payload.resourceId()));
     }
 
     @Override
@@ -176,18 +185,26 @@ public class ProjectionServiceImpl implements ProjectionService {
         for (NightAvailability night : payload.nights()) {
             roomTypeAvailabilityRepository
                     .findByResourceIdAndStayDate(payload.roomTypeId(), night.stayDate())
-                    .ifPresentOrElse(row -> {
-                        if (payload.version() >= row.getVersion()) {
-                            row.setReserved(night.reserved());
-                            row.setVersion(payload.version());
-                            roomTypeAvailabilityRepository.save(row);
-                        } else {
-                            log.info("Dropping stale hotel night availability: roomTypeId={}, night={}, "
-                                    + "incomingVersion={} < stored={}", payload.roomTypeId(), night.stayDate(),
-                                    payload.version(), row.getVersion());
-                        }
-                    }, () -> log.warn("Room-type night not found for availability update: roomTypeId={}, night={}",
-                            payload.roomTypeId(), night.stayDate()));
+                    .ifPresentOrElse(
+                            row -> {
+                                if (payload.version() >= row.getVersion()) {
+                                    row.setReserved(night.reserved());
+                                    row.setVersion(payload.version());
+                                    roomTypeAvailabilityRepository.save(row);
+                                } else {
+                                    log.info(
+                                            "Dropping stale hotel night availability: roomTypeId={}, night={}, "
+                                                    + "incomingVersion={} < stored={}",
+                                            payload.roomTypeId(),
+                                            night.stayDate(),
+                                            payload.version(),
+                                            row.getVersion());
+                                }
+                            },
+                            () -> log.warn(
+                                    "Room-type night not found for availability update: roomTypeId={}, night={}",
+                                    payload.roomTypeId(),
+                                    night.stayDate()));
         }
     }
 
@@ -203,7 +220,8 @@ public class ProjectionServiceImpl implements ProjectionService {
         Map<UUID, List<RoomTypeNightAvailabilityProjection>> existingByRoomType = presentIds.isEmpty()
                 ? Map.of()
                 : roomTypeAvailabilityRepository
-                        .findByResourceIdInAndStayDateGreaterThanEqual(presentIds, today).stream()
+                        .findByResourceIdInAndStayDateGreaterThanEqual(presentIds, today)
+                        .stream()
                         .collect(Collectors.groupingBy(RoomTypeNightAvailabilityProjection::getResourceId));
 
         for (RoomTypeEvent roomType : roomTypes) {
@@ -213,14 +231,19 @@ public class ProjectionServiceImpl implements ProjectionService {
             for (RoomTypeNightAvailabilityProjection row : existing) {
                 existingDates.add(row.getStayDate());
                 if (row.getStayDate().isBefore(endExclusive)) {
-                    row.setCapacity(roomType.totalRooms());   // capacity is catalog-owned; keep reserved/version/status
+                    row.setCapacity(roomType.totalRooms()); // capacity is catalog-owned; keep reserved/version/status
                 }
             }
             for (LocalDate date = today; date.isBefore(endExclusive); date = date.plusDays(1)) {
                 if (!existingDates.contains(date)) {
                     roomTypeAvailabilityRepository.save(new RoomTypeNightAvailabilityProjection(
-                            UUID.randomUUID(), roomType.roomTypeId(), date,
-                            roomType.totalRooms(), 0, AvailabilityStatus.ACTIVE, 0));
+                            UUID.randomUUID(),
+                            roomType.roomTypeId(),
+                            date,
+                            roomType.totalRooms(),
+                            0,
+                            AvailabilityStatus.ACTIVE,
+                            0));
                 }
             }
         }

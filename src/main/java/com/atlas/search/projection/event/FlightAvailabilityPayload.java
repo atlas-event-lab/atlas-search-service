@@ -1,7 +1,6 @@
 package com.atlas.search.projection.event;
 
 import jakarta.validation.constraints.NotNull;
-
 import java.util.UUID;
 
 /**
@@ -10,12 +9,4 @@ import java.util.UUID;
  * {@code reserved} value, applied only if {@code version ≥} the stored version (last-writer-wins).
  */
 public record FlightAvailabilityPayload(
-        @NotNull
-        UUID reservationId,
-        UUID bookingId,
-
-        @NotNull
-        UUID resourceId,
-        int reserved,
-        long version
-) {}
+        @NotNull UUID reservationId, UUID bookingId, @NotNull UUID resourceId, int reserved, long version) {}

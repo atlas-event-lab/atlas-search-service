@@ -21,96 +21,117 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class InventoryAvailabilityConsumerTest {
 
-  @Mock
-  private ProjectionService projectionService;
-  @Mock
-  private EventValidator eventValidator;
+    @Mock
+    private ProjectionService projectionService;
 
-  private InventoryAvailabilityConsumer consumer;
+    @Mock
+    private EventValidator eventValidator;
 
-  @BeforeEach
-  void setUp() {
-    consumer = new InventoryAvailabilityConsumer(projectionService, eventValidator);
-  }
+    private InventoryAvailabilityConsumer consumer;
 
-  @Test
-  void onFlightReserved_validatesAndAppliesAbsoluteFlightAvailability() {
-    FlightAvailabilityPayload payload = new FlightAvailabilityPayload(
-        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 7, 173L);
-    EventEnvelope<FlightAvailabilityPayload> envelope = flightEnvelope(payload);
+    @BeforeEach
+    void setUp() {
+        consumer = new InventoryAvailabilityConsumer(projectionService, eventValidator);
+    }
 
-    consumer.onFlightReserved(envelope);
+    @Test
+    void onFlightReserved_validatesAndAppliesAbsoluteFlightAvailability() {
+        FlightAvailabilityPayload payload =
+                new FlightAvailabilityPayload(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 7, 173L);
+        EventEnvelope<FlightAvailabilityPayload> envelope = flightEnvelope(payload);
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).applyFlightAvailability(payload);
-  }
+        consumer.onFlightReserved(envelope);
 
-  @Test
-  void onFlightReleased_appliesAbsoluteFlightAvailability() {
-    FlightAvailabilityPayload payload = new FlightAvailabilityPayload(
-        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, 200L);
-    EventEnvelope<FlightAvailabilityPayload> envelope = flightEnvelope(payload);
+        verify(eventValidator).validate(envelope);
+        verify(projectionService).applyFlightAvailability(payload);
+    }
 
-    consumer.onFlightReleased(envelope);
+    @Test
+    void onFlightReleased_appliesAbsoluteFlightAvailability() {
+        FlightAvailabilityPayload payload =
+                new FlightAvailabilityPayload(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 2, 200L);
+        EventEnvelope<FlightAvailabilityPayload> envelope = flightEnvelope(payload);
 
-    verify(projectionService).applyFlightAvailability(payload);
-  }
+        consumer.onFlightReleased(envelope);
 
-  @Test
-  void onFlightExpired_appliesAbsoluteFlightAvailability() {
-    FlightAvailabilityPayload payload = new FlightAvailabilityPayload(
-        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 0, 300L);
-    EventEnvelope<FlightAvailabilityPayload> envelope = flightEnvelope(payload);
+        verify(projectionService).applyFlightAvailability(payload);
+    }
 
-    consumer.onFlightExpired(envelope);
+    @Test
+    void onFlightExpired_appliesAbsoluteFlightAvailability() {
+        FlightAvailabilityPayload payload =
+                new FlightAvailabilityPayload(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 0, 300L);
+        EventEnvelope<FlightAvailabilityPayload> envelope = flightEnvelope(payload);
 
-    verify(projectionService).applyFlightAvailability(payload);
-  }
+        consumer.onFlightExpired(envelope);
 
-  @Test
-  void onHotelReserved_validatesAndAppliesPerNightAbsoluteAvailability() {
-    HotelAvailabilityPayload payload = hotelPayload(4, 100L);
-    EventEnvelope<HotelAvailabilityPayload> envelope = hotelEnvelope(payload);
+        verify(projectionService).applyFlightAvailability(payload);
+    }
 
-    consumer.onHotelReserved(envelope);
+    @Test
+    void onHotelReserved_validatesAndAppliesPerNightAbsoluteAvailability() {
+        HotelAvailabilityPayload payload = hotelPayload(4, 100L);
+        EventEnvelope<HotelAvailabilityPayload> envelope = hotelEnvelope(payload);
 
-    verify(eventValidator).validate(envelope);
-    verify(projectionService).applyHotelAvailability(payload);
-  }
+        consumer.onHotelReserved(envelope);
 
-  @Test
-  void onHotelReleased_appliesPerNightAbsoluteAvailability() {
-    HotelAvailabilityPayload payload = hotelPayload(1, 150L);
-    EventEnvelope<HotelAvailabilityPayload> envelope = hotelEnvelope(payload);
+        verify(eventValidator).validate(envelope);
+        verify(projectionService).applyHotelAvailability(payload);
+    }
 
-    consumer.onHotelReleased(envelope);
+    @Test
+    void onHotelReleased_appliesPerNightAbsoluteAvailability() {
+        HotelAvailabilityPayload payload = hotelPayload(1, 150L);
+        EventEnvelope<HotelAvailabilityPayload> envelope = hotelEnvelope(payload);
 
-    verify(projectionService).applyHotelAvailability(payload);
-  }
+        consumer.onHotelReleased(envelope);
 
-  @Test
-  void onHotelExpired_appliesPerNightAbsoluteAvailability() {
-    HotelAvailabilityPayload payload = hotelPayload(0, 200L);
-    EventEnvelope<HotelAvailabilityPayload> envelope = hotelEnvelope(payload);
+        verify(projectionService).applyHotelAvailability(payload);
+    }
 
-    consumer.onHotelExpired(envelope);
+    @Test
+    void onHotelExpired_appliesPerNightAbsoluteAvailability() {
+        HotelAvailabilityPayload payload = hotelPayload(0, 200L);
+        EventEnvelope<HotelAvailabilityPayload> envelope = hotelEnvelope(payload);
 
-    verify(projectionService).applyHotelAvailability(payload);
-  }
+        consumer.onHotelExpired(envelope);
 
-  private HotelAvailabilityPayload hotelPayload(int reserved, long version) {
-    return new HotelAvailabilityPayload(
-        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-        List.of(new NightAvailability(LocalDate.of(2026, 8, 1), reserved)), version);
-  }
+        verify(projectionService).applyHotelAvailability(payload);
+    }
 
-  private EventEnvelope<FlightAvailabilityPayload> flightEnvelope(FlightAvailabilityPayload payload) {
-    return new EventEnvelope<>(UUID.randomUUID(), "FLIGHT_SEATS_RESERVED", 1, Instant.now(),
-        null, null, null, "inventory-service", payload);
-  }
+    private HotelAvailabilityPayload hotelPayload(int reserved, long version) {
+        return new HotelAvailabilityPayload(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                List.of(new NightAvailability(LocalDate.of(2026, 8, 1), reserved)),
+                version);
+    }
 
-  private EventEnvelope<HotelAvailabilityPayload> hotelEnvelope(HotelAvailabilityPayload payload) {
-    return new EventEnvelope<>(UUID.randomUUID(), "HOTEL_ROOMS_RESERVED", 1, Instant.now(),
-        null, null, null, "inventory-service", payload);
-  }
+    private EventEnvelope<FlightAvailabilityPayload> flightEnvelope(FlightAvailabilityPayload payload) {
+        return new EventEnvelope<>(
+                UUID.randomUUID(),
+                "FLIGHT_SEATS_RESERVED",
+                1,
+                Instant.now(),
+                null,
+                null,
+                null,
+                "inventory-service",
+                payload);
+    }
+
+    private EventEnvelope<HotelAvailabilityPayload> hotelEnvelope(HotelAvailabilityPayload payload) {
+        return new EventEnvelope<>(
+                UUID.randomUUID(),
+                "HOTEL_ROOMS_RESERVED",
+                1,
+                Instant.now(),
+                null,
+                null,
+                null,
+                "inventory-service",
+                payload);
+    }
 }

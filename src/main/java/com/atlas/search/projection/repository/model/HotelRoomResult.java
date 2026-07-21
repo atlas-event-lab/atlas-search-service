@@ -6,18 +6,17 @@ import java.util.List;
 import java.util.UUID;
 
 public record HotelRoomResult(
-    UUID hotelId,
-    String hotelName,
-    String city,
-    String country,
-    Integer rating,
-    UUID roomTypeId,
-    String roomName,
-    Integer maxOccupancy,
-    BigDecimal pricePerNight,
-    String currency,
-    Integer available,
-    List<String> amenities,
-    List<ImageDto> hotelImages,
-    List<ImageDto> roomImages
-) { }
+        UUID hotelId,
+        String hotelName,
+        String city,
+        String country,
+        Integer rating,
+        UUID roomTypeId,
+        String roomName,
+        Integer maxOccupancy,
+        BigDecimal pricePerNight,
+        String currency,
+        Integer available,
+        List<String> amenities,
+        List<ImageDto> hotelImages,
+        List<ImageDto> roomImages) {}

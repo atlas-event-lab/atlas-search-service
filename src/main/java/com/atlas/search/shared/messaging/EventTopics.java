@@ -20,10 +20,10 @@ public final class EventTopics {
     // ── Inventory resource-facing (owned by Inventory Service) ─────────────────
     public static final String INVENTORY_FLIGHT_RESERVED = "inventory.flight.reserved";
     public static final String INVENTORY_FLIGHT_RELEASED = "inventory.flight.released";
-    public static final String INVENTORY_FLIGHT_EXPIRED  = "inventory.flight.expired";
-    public static final String INVENTORY_HOTEL_RESERVED  = "inventory.hotel.reserved";
-    public static final String INVENTORY_HOTEL_RELEASED  = "inventory.hotel.released";
-    public static final String INVENTORY_HOTEL_EXPIRED   = "inventory.hotel.expired";
+    public static final String INVENTORY_FLIGHT_EXPIRED = "inventory.flight.expired";
+    public static final String INVENTORY_HOTEL_RESERVED = "inventory.hotel.reserved";
+    public static final String INVENTORY_HOTEL_RELEASED = "inventory.hotel.released";
+    public static final String INVENTORY_HOTEL_EXPIRED = "inventory.hotel.expired";
 
     private EventTopics() {}
 }

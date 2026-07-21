@@ -5,7 +5,6 @@ import com.atlas.search.projection.event.FlightCatalogPayload;
 import com.atlas.search.projection.event.HotelAvailabilityPayload;
 import com.atlas.search.projection.event.HotelCatalogPayload;
 import com.atlas.search.shared.messaging.ConsumerEventType;
-
 import java.util.UUID;
 
 /** Maintains the Search Service index projections from catalog and inventory events (ADR-0009). */

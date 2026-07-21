@@ -1,13 +1,12 @@
 package com.atlas.search.projection.repository;
 
 import com.atlas.search.projection.entity.RoomTypeNightAvailabilityProjection;
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
  * Repository for the per-night hotel availability projection (ADR-0009). Accesses only local

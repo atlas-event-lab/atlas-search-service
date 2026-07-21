@@ -3,16 +3,15 @@ package com.atlas.search.projection.service;
 import com.atlas.search.config.HotelSearchProperties;
 import com.atlas.search.projection.entity.RoomTypeNightAvailabilityProjection;
 import com.atlas.search.projection.repository.RoomTypeNightAvailabilityProjectionRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Rolling maintenance of the hotel availability projection (ADR-0009). As {@code today} advances it
@@ -45,8 +44,7 @@ public class HotelProjectionMaintenanceServiceImpl implements HotelProjectionMai
                 continue;
             }
             repository.save(new RoomTypeNightAvailabilityProjection(
-                    UUID.randomUUID(), row.getResourceId(), frontier,
-                    row.getCapacity(), 0, row.getStatus(), 0));
+                    UUID.randomUUID(), row.getResourceId(), frontier, row.getCapacity(), 0, row.getStatus(), 0));
             created++;
         }
         if (created > 0) {
