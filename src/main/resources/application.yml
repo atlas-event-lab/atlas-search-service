@@ -25,6 +25,18 @@ spring:
       ddl-auto: validate
     show-sql: false
     open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          # Batch the calendar materialization. A single hotel.created writes one row per room
+          # type per night over the booking horizon (~365 x room types), and without batching
+          # Hibernate sends each INSERT as its own round-trip. Batching turns thousands of
+          # round-trips into tens. Origin: Experiment 07 (read model rebuild).
+          batch_size: 100
+        # Batching only actually groups statements when same-type statements are adjacent, so
+        # both of these are load-bearing, not decoration.
+        order_inserts: true
+        order_updates: true
 
   flyway:
     enabled: true

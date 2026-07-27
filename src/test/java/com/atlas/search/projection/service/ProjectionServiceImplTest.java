@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -167,14 +166,18 @@ class ProjectionServiceImplTest {
 
         service.upsertHotel(eventId, ConsumerEventType.HOTEL_CREATED, payload);
 
-        // 2 room types × HORIZON_DAYS nights.
-        ArgumentCaptor<RoomTypeNightAvailabilityProjection> saved =
-                ArgumentCaptor.forClass(RoomTypeNightAvailabilityProjection.class);
-        verify(availRepo, times(2 * HORIZON_DAYS)).save(saved.capture());
-        assertThat(saved.getAllValues())
+        // 2 room types × HORIZON_DAYS nights, written in ONE saveAll so Hibernate can batch the
+        // inserts (ADR-0029). Asserting the single call — not N save() calls — is what keeps the
+        // batching from silently regressing back to a row-at-a-time loop.
+        ArgumentCaptor<List<RoomTypeNightAvailabilityProjection>> saved = ArgumentCaptor.captor();
+        verify(availRepo).saveAll(saved.capture());
+        verify(availRepo, never()).save(any());
+        assertThat(saved.getValue())
+                .hasSize(2 * HORIZON_DAYS)
                 .allSatisfy(r -> assertThat(r.getReserved()).isZero())
                 .allSatisfy(r -> assertThat(r.getVersion()).isZero())
                 .allSatisfy(r -> assertThat(r.getStatus()).isEqualTo(AvailabilityStatus.ACTIVE))
+                .allSatisfy(r -> assertThat(r.isNew()).isTrue()) // Persistable => insert, not merge
                 .anySatisfy(r -> assertThat(r.getStayDate()).isEqualTo(TODAY));
         verify(hotelRepo).save(any(HotelProjection.class));
         verify(consumedRepo).save(any());

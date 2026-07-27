@@ -5,6 +5,8 @@ import com.atlas.search.projection.entity.RoomTypeNightAvailabilityProjection;
 import com.atlas.search.projection.repository.RoomTypeNightAvailabilityProjectionRepository;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -38,19 +40,19 @@ public class HotelProjectionMaintenanceServiceImpl implements HotelProjectionMai
                 .map(RoomTypeNightAvailabilityProjection::getResourceId)
                 .collect(Collectors.toSet());
 
-        int created = 0;
+        List<RoomTypeNightAvailabilityProjection> newNights = new ArrayList<>();
         for (RoomTypeNightAvailabilityProjection row : repository.findByStayDate(source)) {
             if (alreadyExtended.contains(row.getResourceId())) {
                 continue;
             }
-            repository.save(new RoomTypeNightAvailabilityProjection(
+            newNights.add(new RoomTypeNightAvailabilityProjection(
                     UUID.randomUUID(), row.getResourceId(), frontier, row.getCapacity(), 0, row.getStatus(), 0));
-            created++;
         }
-        if (created > 0) {
-            log.info("Rolled hotel projection forward: created {} night(s) for {}", created, frontier);
+        if (!newNights.isEmpty()) {
+            repository.saveAll(newNights);
+            log.info("Rolled hotel projection forward: created {} night(s) for {}", newNights.size(), frontier);
         }
-        return created;
+        return newNights.size();
     }
 
     @Override

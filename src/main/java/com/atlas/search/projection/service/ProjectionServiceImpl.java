@@ -22,6 +22,7 @@ import com.atlas.search.shared.messaging.ConsumerEventType;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -233,6 +234,8 @@ public class ProjectionServiceImpl implements ProjectionService {
                         .stream()
                         .collect(Collectors.groupingBy(RoomTypeNightAvailabilityProjection::getResourceId));
 
+        List<RoomTypeNightAvailabilityProjection> newNights = new ArrayList<>();
+
         for (RoomTypeEvent roomType : roomTypes) {
             List<RoomTypeNightAvailabilityProjection> existing =
                     existingByRoomType.getOrDefault(roomType.roomTypeId(), List.of());
@@ -245,7 +248,7 @@ public class ProjectionServiceImpl implements ProjectionService {
             }
             for (LocalDate date = today; date.isBefore(endExclusive); date = date.plusDays(1)) {
                 if (!existingDates.contains(date)) {
-                    roomTypeAvailabilityRepository.save(new RoomTypeNightAvailabilityProjection(
+                    newNights.add(new RoomTypeNightAvailabilityProjection(
                             UUID.randomUUID(),
                             roomType.roomTypeId(),
                             date,
@@ -255,6 +258,10 @@ public class ProjectionServiceImpl implements ProjectionService {
                             0));
                 }
             }
+        }
+
+        if (!newNights.isEmpty()) {
+            roomTypeAvailabilityRepository.saveAll(newNights);
         }
 
         // Reconcile removals: room types present before but not now → DISABLE their future nights.
